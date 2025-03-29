@@ -3,10 +3,10 @@ import requests
 from tkinter import Frame, Label, Entry, Button, StringVar, ttk
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv() # Charge le contenu du fichier .env
 
 API_URL = "https://license-api-h5um.onrender.com/modify_credits"
-ADMIN_TOKEN = os.getenv("ADMIN_PASSWORD")
+SECRET = os.getenv("ADMIN_PASSWORD")  # Récupère la variable après le chargement
 
 class LicenceManagerFrame(Frame):
     def __init__(self, master=None):
@@ -38,14 +38,20 @@ class LicenceManagerFrame(Frame):
     def update_credits(self, amount):
         try:
             headers = {
-                "Authorization": f"Bearer {ADMIN_TOKEN}"
+                "Authorization": f"Bearer {SECRET}"
             }
             data = {
                 "license_id": self.agency_var.get(),
                 "amount": amount
             }
             response = requests.post(API_URL, json=data, headers=headers)
-            result = response.json()
+
+            # Vérifie que la réponse contient bien du JSON
+            try:
+                result = response.json()
+            except ValueError:
+                self.result_label.config(text=f"❌ Réponse invalide : {response.text}")
+                return
 
             if result.get("success"):
                 new_balance = result["new_balance"]
