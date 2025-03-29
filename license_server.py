@@ -72,5 +72,26 @@ def modify_credits():
 def list_agencies():
     return jsonify(list(licenses.keys()))
 
+@app.route("/add_agency", methods=["POST"])
+def add_agency():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    license_id = data.get("license_id")
+
+    if not license_id:
+        return jsonify({"success": False, "error": "Missing license_id"}), 400
+
+    if license_id in licenses:
+        return jsonify({"success": False, "error": "License already exists"}), 409
+
+    licenses[license_id] = {"remaining": 0, "active": True}
+    print(f"Ajout de la licence {license_id}")
+    return jsonify({"success": True, "message": f"License {license_id} added"})
+
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
