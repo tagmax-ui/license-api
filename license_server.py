@@ -42,7 +42,7 @@ def use_credits():
         "remaining": license_info["remaining"]
     })
 
-@app.route("/add_credits", methods=["POST"])
+@app.route("/admin_add_credits_xyz", methods=["POST"])
 def add_credits():
     data = request.get_json()
     license_id = data.get("license_id")
@@ -61,6 +61,7 @@ def add_credits():
         "success": True,
         "new_balance": license_info["remaining"]
     })
+
 
 
 
