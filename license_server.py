@@ -1,6 +1,10 @@
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
+@app.route("/")
+def home():
+    return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
+
 
 # Fake in-memory "database" of licenses
 licenses = {
