@@ -1,10 +1,8 @@
+import os
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-@app.route("/")
-def home():
-    return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
-
+admin_password = os.getenv("ADMIN_SECRET")
 
 # Fake in-memory "database" of licenses
 licenses = {
@@ -17,6 +15,10 @@ licenses = {
         "active": False
     }
 }
+
+@app.route("/")
+def home():
+    return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
 
 @app.route("/use_credits", methods=["POST"])
 def use_credits():
@@ -35,34 +37,35 @@ def use_credits():
     if license_info["remaining"] < units:
         return jsonify({"success": False, "error": "Insufficient credits"}), 402
 
-    # Deduct usage
     license_info["remaining"] -= units
     return jsonify({
         "success": True,
         "remaining": license_info["remaining"]
     })
 
-@app.route("/admin_add_credits_xyz", methods=["POST"])
-def add_credits():
+@app.route("/modify_credits", methods=["POST"])
+def modify_credits():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     data = request.get_json()
     license_id = data.get("license_id")
-    added = data.get("amount", 0)
-    secret = data.get("secret")
-
-    if secret != "TOPSECRET123":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    amount = data.get("amount", 0)
 
     license_info = licenses.get(license_id)
     if not license_info:
         return jsonify({"success": False, "error": "License not found"}), 404
 
-    license_info["remaining"] += added
+    license_info["remaining"] += amount
+
+    # ✅ Affichage dans les logs de Render
+    print(f"✔ Crédits modifiés: {amount} pour {license_id}. Nouveau solde: {license_info['remaining']}")
+
     return jsonify({
         "success": True,
         "new_balance": license_info["remaining"]
     })
-
-
 
 
 if __name__ == "__main__":
