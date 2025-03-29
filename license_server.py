@@ -68,5 +68,9 @@ def modify_credits():
     })
 
 
+@app.route("/list_agencies", methods=["GET"])
+def list_agencies():
+    return jsonify(list(licenses.keys()))
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
