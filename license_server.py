@@ -42,5 +42,27 @@ def use_credits():
         "remaining": license_info["remaining"]
     })
 
+@app.route("/add_credits", methods=["POST"])
+def add_credits():
+    data = request.get_json()
+    license_id = data.get("license_id")
+    added = data.get("amount", 0)
+    secret = data.get("secret")
+
+    if secret != "TOPSECRET123":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    license_info = licenses.get(license_id)
+    if not license_info:
+        return jsonify({"success": False, "error": "License not found"}), 404
+
+    license_info["remaining"] += added
+    return jsonify({
+        "success": True,
+        "new_balance": license_info["remaining"]
+    })
+
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
