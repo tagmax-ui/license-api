@@ -80,16 +80,29 @@ def add_agency():
 
     data = request.get_json()
     license_id = data.get("license_id")
+    agency_name = data.get("agency_name")
+    matrix_balance = data.get("matrix_balance", 0)
+    web_weighter_balance = data.get("web_weighter_balance", 0)
+    tagmax_expiry_date = data.get("tagmax_expiry_date")
+    matrix_expiry_date = data.get("matrix_expiry_date")
 
-    if not license_id:
-        return jsonify({"success": False, "error": "Missing license_id"}), 400
+    if not license_id or not agency_name:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
 
     if license_id in licenses:
         return jsonify({"success": False, "error": "License already exists"}), 409
 
-    licenses[license_id] = {"remaining": 0, "active": True}
+    licenses[license_id] = {
+        "agency_name": agency_name,
+        "matrix_balance": matrix_balance,
+        "web_weighter_balance": web_weighter_balance,
+        "tagmax_expiry_date": tagmax_expiry_date,
+        "matrix_expiry_date": matrix_expiry_date
+    }
+
     print(f"Ajout de la licence {license_id}")
     return jsonify({"success": True, "message": f"License {license_id} added"})
+
 
 
 
