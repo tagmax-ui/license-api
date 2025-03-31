@@ -110,7 +110,7 @@ def reset_all_licenses():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     licenses.clear()
-    save_licenses()  # Si tu as une fonction pour écrire dans licenses.json
+
     return jsonify({"success": True, "message": "Toutes les licences ont été supprimées."})
 
 
