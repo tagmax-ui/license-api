@@ -11,53 +11,64 @@ SECRET = os.getenv("ADMIN_PASSWORD")  # Récupère la variable après le chargem
 class LicenceManagerFrame(Frame):
     def __init__(self, master=None):
         super().__init__(master)
-        self.pack()
+        self.pack(padx=10, pady=10)
 
-        Label(self, text="Choisir une agence:").grid(row=0, column=0, sticky="w")
-        self.agencies = []
         self.agency_var = StringVar()
-        self.agency_combobox = ttk.Combobox(self, textvariable=self.agency_var, values=self.agencies, state="readonly")
-        self.agency_combobox.bind("<<ComboboxSelected>>", self.check_current_balance)
-
-        self.agency_combobox.grid(row=0, column=1, sticky="ew")
-
-        Label(self, text="Crédits à ajouter/retirer (en milliers):").grid(row=1, column=0, sticky="w")
-        self.amount_var = StringVar()
-        self.amount_entry = Entry(self, textvariable=self.amount_var, width=10)
-        self.amount_entry.grid(row=1, column=1, sticky="w")
-        Label(self, text="000").grid(row=1, column=2, sticky="w")
-
-        self.add_button = Button(self, text="Ajouter", command=self.add_credits)
-        self.add_button.grid(row=2, column=0, pady=5)
-
-        self.remove_button = Button(self, text="Retirer", command=self.remove_credits)
-        self.remove_button.grid(row=2, column=1, pady=5)
-
-        Label(self, text="Nouvelle agence:").grid(row=4, column=0, sticky="w")
+        self.amount_matrix_var = StringVar()
+        self.amount_weighter_var = StringVar()
         self.new_agency_var = StringVar()
+
+        # 🔴 Ligne 0 — Label d'avertissement
+        self.result_label = Label(self, text="", fg="red")
+        self.result_label.grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 10))
+
+        # 🧾 Ligne 1 — Choix de l'agence
+        Label(self, text="Agence:").grid(row=1, column=0, sticky="w")
+        self.agency_combobox = ttk.Combobox(self, textvariable=self.agency_var, values=[], state="readonly")
+        self.agency_combobox.grid(row=1, column=1, columnspan=2, sticky="ew")
+
+        # 📦 Ligne 2 — Solde Matriciel
+        Label(self, text="Solde Matriciel").grid(row=2, column=0, sticky="w")
+        self.matrix_balance_label = Label(self, text="0 crédits")
+        self.matrix_balance_label.grid(row=2, column=1, sticky="w")
+        self.matrix_entry = Entry(self, textvariable=self.amount_matrix_var, width=10)
+        self.matrix_entry.grid(row=2, column=2, sticky="w")
+        Button(self, text="Ajouter", command=self.add_matrix_credits).grid(row=2, column=3)
+        Button(self, text="Retirer", command=self.remove_matrix_credits).grid(row=2, column=4)
+
+        # ⚖️ Ligne 3 — Solde Pondérateur
+        Label(self, text="Solde Pondérateur").grid(row=3, column=0, sticky="w")
+        self.weighter_balance_label = Label(self, text="0 crédits")
+        self.weighter_balance_label.grid(row=3, column=1, sticky="w")
+        self.weighter_entry = Entry(self, textvariable=self.amount_weighter_var, width=10)
+        self.weighter_entry.grid(row=3, column=2, sticky="w")
+        Button(self, text="Ajouter", command=self.add_weighter_credits).grid(row=3, column=3)
+        Button(self, text="Retirer", command=self.remove_weighter_credits).grid(row=3, column=4)
+
+        # 🆕 Ligne 4 — Nouvelle agence
+        Label(self, text="Nouvelle agence").grid(row=4, column=0, sticky="w", pady=(10, 0))
         self.new_agency_entry = Entry(self, textvariable=self.new_agency_var)
-        self.new_agency_entry.grid(row=4, column=1, sticky="ew")
+        self.new_agency_entry.grid(row=4, column=1, columnspan=2, sticky="ew", pady=(10, 0))
+        Button(self, text="Ajouter agence", command=self.create_agency).grid(row=4, column=3, columnspan=2, pady=(10, 0))
 
-        self.add_agency_button = Button(self, text="Ajouter agence", command=self.create_agency)
-        self.add_agency_button.grid(row=4, column=2, padx=5)
-
-        self.result_label = Label(self, text="")
-        self.result_label.grid(row=3, column=0, columnspan=3, sticky="w")
+        # Permet l'expansion horizontale
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
         self.fetch_agencies()
 
-    def update_credits(self, amount):
+    def update_credits(self, amount, balance_type):
         try:
             headers = {
                 "Authorization": f"Bearer {SECRET}"
             }
             data = {
-                "license_id": self.agency_var.get(),
-                "amount": amount
+                "agency_name": self.agency_var.get(),
+                "amount": amount,
+                "balance_type": f"{balance_type}_balance"  # ← important!
             }
             response = requests.post(API_URL, json=data, headers=headers)
 
-            # Vérifie que la réponse contient bien du JSON
             try:
                 result = response.json()
             except ValueError:
@@ -65,26 +76,12 @@ class LicenceManagerFrame(Frame):
                 return
 
             if result.get("success"):
-                new_balance = result["new_balance"]
-                self.result_label.config(text=f"✅ Nouveau solde: {new_balance} crédits")
+                self.result_label.config(text="✅ Crédits mis à jour.")
+                self.check_current_balance()  # ← toujours mettre à jour les soldes après
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
             self.result_label.config(text=f"❌ Erreur réseau: {e}")
-
-    def add_credits(self):
-        try:
-            amount = int(self.amount_var.get()) * 1000
-            self.update_credits(amount)
-        except ValueError:
-            self.result_label.config(text="⚠️ Entrez un nombre valide.")
-
-    def remove_credits(self):
-        try:
-            amount = int(self.amount_var.get()) * -1000
-            self.update_credits(amount)
-        except ValueError:
-            self.result_label.config(text="⚠️ Entrez un nombre valide.")
 
     def check_current_balance(self, *_):
         try:
@@ -92,30 +89,42 @@ class LicenceManagerFrame(Frame):
                 "Authorization": f"Bearer {SECRET}"
             }
             data = {
-                "license_id": self.agency_var.get(),
-                "amount": 0  # on n'ajoute ni ne retire
+                "license_id": self.agency_var.get()
             }
-            response = requests.post(API_URL, json=data, headers=headers)
+            response = requests.post("https://license-api-h5um.onrender.com/get_balance", json=data, headers=headers)
+
+            if not response.content:
+                self.result_label.config(text="❌ Réponse vide du serveur.")
+                return
+
             result = response.json()
 
             if result.get("success"):
-                new_balance = result["new_balance"]
-                self.result_label.config(text=f"💡 Solde courant: {new_balance} crédits")
+                matrix = result.get("matrix_balance", "?")
+                weighter = result.get("web_weighter_balance", "?")
+
+                self.matrix_balance_label.config(text=f"{matrix} crédits")
+                self.weighter_balance_label.config(text=f"{weighter} crédits")
+                self.result_label.config(text="")  # Efface les anciens messages d’erreur
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
             self.result_label.config(text=f"❌ Erreur réseau: {e}")
 
     def create_agency(self):
-        license_id = self.new_agency_var.get().strip()
-        if not license_id:
+        agency_name = self.new_agency_var.get().strip()
+        if not agency_name:
             self.result_label.config(text="⚠️ Entrez un nom d’agence.")
             return
 
         headers = {
             "Authorization": f"Bearer {SECRET}"
         }
-        data = {"license_id": license_id}
+        data = {
+            "agency_name": agency_name,
+            "matrix_balance": 0,
+            "web_weighter_balance": 0
+        }
 
         try:
             response = requests.post("https://license-api-h5um.onrender.com/add_agency", json=data, headers=headers)
@@ -125,9 +134,9 @@ class LicenceManagerFrame(Frame):
                 self.result_label.config(text="❌ Erreur : réponse vide du serveur.")
                 return
             if result.get("success"):
-                self.result_label.config(text=f"✅ Agence '{license_id}' ajoutée.")
+                self.result_label.config(text=f"✅ Agence '{agency_name}' ajoutée.")
                 self.fetch_agencies()
-                self.agency_var.set(license_id)
+                self.agency_var.set(agency_name)
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
@@ -137,21 +146,48 @@ class LicenceManagerFrame(Frame):
         try:
             response = requests.get("https://license-api-h5um.onrender.com/list_agencies")
             response.raise_for_status()
-            data = response.json()
+            result = response.json()
 
-            # Gère les deux formats possibles
-            if isinstance(data, list):
-                self.agencies = data
-            elif isinstance(data, dict):
-                self.agencies = data.get("agencies", [])
+            # ✅ Gère les deux formats possibles (ancien/débogage ou futur changement)
+            if isinstance(result, list):
+                self.agencies = result
+            elif isinstance(result, dict):
+                self.agencies = result.get("agencies", [])
             else:
-                raise ValueError("Format de réponse inattendu")
+                raise ValueError("Format inattendu de la réponse")
 
             self.agency_combobox['values'] = self.agencies
 
             if self.agencies:
                 self.agency_var.set(self.agencies[0])
-                self.check_current_balance()
+
         except Exception as e:
             self.result_label.config(text=f"❌ Impossible de récupérer les agences: {e}")
 
+    def add_matrix_credits(self):
+        try:
+            amount = int(self.amount_matrix_var.get()) * 1000
+            self.update_credits(amount, 'matrix')
+        except ValueError:
+            self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde matriciel.")
+
+    def remove_matrix_credits(self):
+        try:
+            amount = int(self.amount_matrix_var.get()) * -1000
+            self.update_credits(amount, 'matrix')
+        except ValueError:
+            self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde matriciel.")
+
+    def add_weighter_credits(self):
+        try:
+            amount = int(self.amount_weighter_var.get()) * 1000
+            self.update_credits(amount, 'weighter')
+        except ValueError:
+            self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde pondérateur.")
+
+    def remove_weighter_credits(self):
+        try:
+            amount = int(self.amount_weighter_var.get()) * -1000
+            self.update_credits(amount, 'weighter')
+        except ValueError:
+            self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde pondérateur.")
