@@ -9,6 +9,27 @@ licenses = {}
 def home():
     return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
 
+@app.route("/get_balance", methods=["POST"])
+def get_balance():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    license_id = data.get("license_id")
+
+    agency = licenses.get(license_id)
+    if not agency:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "matrix_balance": agency.get("matrix_balance", 0),
+        "web_weighter_balance": agency.get("web_weighter_balance", 0)
+    })
+
+
+
 @app.route("/use_credits", methods=["POST"])
 def use_credits():
     data = request.get_json()
