@@ -4,18 +4,6 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_SECRET")
 
-# Fake in-memory "database" of licenses
-licenses = {
-    "agency123": {
-        "remaining": 150000,
-        "active": True
-    },
-    "agencyXYZ": {
-        "remaining": 5000,
-        "active": False
-    }
-}
-
 @app.route("/")
 def home():
     return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
@@ -79,29 +67,24 @@ def add_agency():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
-    license_id = data.get("license_id")
     agency_name = data.get("agency_name")
     matrix_balance = data.get("matrix_balance", 0)
     web_weighter_balance = data.get("web_weighter_balance", 0)
-    tagmax_expiry_date = data.get("tagmax_expiry_date")
-    matrix_expiry_date = data.get("matrix_expiry_date")
 
-    if not license_id or not agency_name:
-        return jsonify({"success": False, "error": "Missing required fields"}), 400
+    if not agency_name:
+        return jsonify({"success": False, "error": "Missing agency_name"}), 400
 
-    if license_id in licenses:
-        return jsonify({"success": False, "error": "License already exists"}), 409
+    if agency_name in licenses:
+        return jsonify({"success": False, "error": "Agency already exists"}), 409
 
-    licenses[license_id] = {
-        "agency_name": agency_name,
+    licenses[agency_name] = {
         "matrix_balance": matrix_balance,
-        "web_weighter_balance": web_weighter_balance,
-        "tagmax_expiry_date": tagmax_expiry_date,
-        "matrix_expiry_date": matrix_expiry_date
+        "web_weighter_balance": web_weighter_balance
     }
 
-    print(f"Ajout de la licence {license_id}")
-    return jsonify({"success": True, "message": f"License {license_id} added"})
+    print(f"✅ Ajout de l’agence {agency_name}")
+    return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
+
 
 @app.route("/reset_all_licenses", methods=["POST"])
 def reset_all_licenses():
