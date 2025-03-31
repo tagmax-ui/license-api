@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_SECRET")
+licenses = {}
 
 @app.route("/")
 def home():
