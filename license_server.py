@@ -1,56 +1,48 @@
 import os
+import json
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_SECRET")
-licenses = {}
+
+# 🔁 Chargement et sauvegarde des licences persistantes
+LICENSES_FILE = "licenses.json"
+
+def load_licenses():
+    if os.path.exists(LICENSES_FILE):
+        with open(LICENSES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_licenses():
+    with open(LICENSES_FILE, "w", encoding="utf-8") as f:
+        json.dump(licenses, f, indent=2, ensure_ascii=False)
+
+licenses = load_licenses()
 
 @app.route("/")
 def home():
     return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
 
-@app.route("/get_balance", methods=["POST"])
-def get_balance():
-    auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-
-    data = request.get_json()
-    license_id = data.get("license_id")
-
-    agency = licenses.get(license_id)
-    if not agency:
-        return jsonify({"success": False, "error": "Agency not found"}), 404
-
-    return jsonify({
-        "success": True,
-        "matrix_balance": agency.get("matrix_balance", 0),
-        "web_weighter_balance": agency.get("web_weighter_balance", 0)
-    })
-
-
-
 @app.route("/use_credits", methods=["POST"])
 def use_credits():
     data = request.get_json()
-    license_id = data.get("license_id")
+    agency_name = data.get("agency_name")
     units = data.get("units", 1000)
 
-    license_info = licenses.get(license_id)
+    agency_info = licenses.get(agency_name)
 
-    if not license_info:
+    if not agency_info:
         return jsonify({"success": False, "error": "License not found"}), 404
 
-    if not license_info["active"]:
-        return jsonify({"success": False, "error": "License inactive"}), 403
-
-    if license_info["remaining"] < units:
+    if agency_info.get("matrix_balance", 0) < units:
         return jsonify({"success": False, "error": "Insufficient credits"}), 402
 
-    license_info["remaining"] -= units
+    agency_info["matrix_balance"] -= units
+    save_licenses()
     return jsonify({
         "success": True,
-        "remaining": license_info["remaining"]
+        "matrix_balance": agency_info["matrix_balance"]
     })
 
 @app.route("/modify_credits", methods=["POST"])
@@ -60,23 +52,25 @@ def modify_credits():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
-    license_id = data.get("license_id")
+    agency_name = data.get("agency_name")
     amount = data.get("amount", 0)
+    balance_type = data.get("balance_type")  # 'matrix_balance' ou 'web_weighter_balance'
 
-    license_info = licenses.get(license_id)
-    if not license_info:
+    agency_info = licenses.get(agency_name)
+    if not agency_info:
         return jsonify({"success": False, "error": "License not found"}), 404
 
-    license_info["remaining"] += amount
+    if balance_type not in ("matrix_balance", "web_weighter_balance"):
+        return jsonify({"success": False, "error": "Invalid balance type"}), 400
 
-    # ✅ Affichage dans les logs de Render
-    print(f"✔ Crédits modifiés: {amount} pour {license_id}. Nouveau solde: {license_info['remaining']}")
+    agency_info[balance_type] = agency_info.get(balance_type, 0) + amount
+
+    save_licenses()
 
     return jsonify({
         "success": True,
-        "new_balance": license_info["remaining"]
+        "new_balance": agency_info[balance_type]
     })
-
 
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
@@ -104,9 +98,9 @@ def add_agency():
         "web_weighter_balance": web_weighter_balance
     }
 
-    print(f"✅ Ajout de l’agence {agency_name}")
-    return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
+    save_licenses()
 
+    return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
 
 @app.route("/reset_all_licenses", methods=["POST"])
 def reset_all_licenses():
@@ -115,9 +109,9 @@ def reset_all_licenses():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     licenses.clear()
+    save_licenses()
 
     return jsonify({"success": True, "message": "Toutes les licences ont été supprimées."})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
