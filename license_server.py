@@ -103,7 +103,15 @@ def add_agency():
     print(f"Ajout de la licence {license_id}")
     return jsonify({"success": True, "message": f"License {license_id} added"})
 
+@app.route("/reset_all_licenses", methods=["POST"])
+def reset_all_licenses():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
 
+    licenses.clear()
+    save_licenses()  # Si tu as une fonction pour écrire dans licenses.json
+    return jsonify({"success": True, "message": "Toutes les licences ont été supprimées."})
 
 
 if __name__ == "__main__":
