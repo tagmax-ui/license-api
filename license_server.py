@@ -54,13 +54,13 @@ def modify_credits():
     data = request.get_json()
     agency_name = data.get("agency_name")
     amount = data.get("amount", 0)
-    balance_type = data.get("balance_type")  # 'matrix_balance' ou 'web_weighter_balance'
+    balance_type = data.get("balance_type")  # 'matrix_balance' ou 'weighter_balance'
 
     agency_info = licenses.get(agency_name)
     if not agency_info:
         return jsonify({"success": False, "error": "License not found"}), 404
 
-    if balance_type not in ("matrix_balance", "web_weighter_balance"):
+    if balance_type not in ("matrix_balance", "weighter_balance"):
         return jsonify({"success": False, "error": "Invalid balance type"}), 400
 
     agency_info[balance_type] = agency_info.get(balance_type, 0) + amount
@@ -85,7 +85,7 @@ def add_agency():
     data = request.get_json()
     agency_name = data.get("agency_name")
     matrix_balance = data.get("matrix_balance", 0)
-    web_weighter_balance = data.get("web_weighter_balance", 0)
+    weighter_balance = data.get("weighter_balance", 0)
 
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency_name"}), 400
@@ -95,7 +95,7 @@ def add_agency():
 
     licenses[agency_name] = {
         "matrix_balance": matrix_balance,
-        "web_weighter_balance": web_weighter_balance
+        "weighter_balance": weighter_balance
     }
 
     save_licenses()
@@ -130,7 +130,7 @@ def get_balance():
     return jsonify({
         "success": True,
         "matrix_balance": agency_info.get("matrix_balance", 0),
-        "web_weighter_balance": agency_info.get("web_weighter_balance", 0)
+        "weighter_balance": agency_info.get("weighter_balance", 0)
     })
 
 
