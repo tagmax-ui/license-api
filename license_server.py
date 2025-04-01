@@ -27,24 +27,34 @@ def home():
 
 @app.route("/use_credits", methods=["POST"])
 def use_credits():
-    data = request.get_json()
-    agency_name = data.get("agency_name")
-    units = data.get("units", 1000)
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
+    agency_name = auth.split("Bearer ")[1].strip()
     agency_info = licenses.get(agency_name)
 
     if not agency_info:
-        return jsonify({"success": False, "error": "License not found"}), 404
+        return jsonify({"success": False, "error": "Agency not found"}), 404
 
-    if agency_info.get("matrix_balance", 0) < units:
+    data = request.get_json()
+    units = data.get("units", 1000)
+    balance_type = data.get("balance_type", "matrix_balance")  # défaut : matrix
+
+    if balance_type not in ("matrix_balance", "weighter_balance"):
+        return jsonify({"success": False, "error": "Invalid balance type"}), 400
+
+    if agency_info.get(balance_type, 0) < units:
         return jsonify({"success": False, "error": "Insufficient credits"}), 402
 
-    agency_info["matrix_balance"] -= units
+    agency_info[balance_type] -= units
     save_licenses()
+
     return jsonify({
         "success": True,
-        "matrix_balance": agency_info["matrix_balance"]
+        "remaining": agency_info[balance_type]
     })
+
 
 @app.route("/modify_credits", methods=["POST"])
 def modify_credits():
