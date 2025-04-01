@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_SECRET")
 
-# 🔁 Chargement et sauvegarde des licences persistantes
+# 🔁 Chargement et sauvegarde des licences persistantes juste ici.
 LICENSES_FILE = "/data/licenses.json"
 
 
