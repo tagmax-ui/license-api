@@ -6,7 +6,8 @@ app = Flask(__name__)
 admin_password = os.getenv("ADMIN_SECRET")
 
 # 🔁 Chargement et sauvegarde des licences persistantes
-LICENSES_FILE = "licenses.json"
+LICENSES_FILE = "/data/licenses.json"
+
 
 def load_licenses():
     if os.path.exists(LICENSES_FILE):
