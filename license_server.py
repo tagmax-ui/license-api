@@ -49,17 +49,18 @@ def use_credits():
 @app.route("/modify_credits", methods=["POST"])
 def modify_credits():
     auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
+
+    agency_name = auth.split("Bearer ")[1].strip()
+    agency_info = licenses.get(agency_name)
+
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
 
     data = request.get_json()
-    agency_name = data.get("agency_name")
     amount = data.get("amount", 0)
-    balance_type = data.get("balance_type")  # 'matrix_balance' ou 'weighter_balance'
-
-    agency_info = licenses.get(agency_name)
-    if not agency_info:
-        return jsonify({"success": False, "error": "License not found"}), 404
+    balance_type = data.get("balance_type")
 
     if balance_type not in ("matrix_balance", "weighter_balance"):
         return jsonify({"success": False, "error": "Invalid balance type"}), 400
@@ -72,6 +73,7 @@ def modify_credits():
         "success": True,
         "new_balance": agency_info[balance_type]
     })
+
 
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
@@ -118,11 +120,10 @@ def reset_all_licenses():
 @app.route("/get_balance", methods=["POST"])
 def get_balance():
     auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
-    data = request.get_json()
-    agency_name = data.get("agency_name")
+    agency_name = auth.split("Bearer ")[1].strip()
     agency_info = licenses.get(agency_name)
 
     if not agency_info:
@@ -133,6 +134,7 @@ def get_balance():
         "matrix_balance": agency_info.get("matrix_balance", 0),
         "weighter_balance": agency_info.get("weighter_balance", 0)
     })
+
 
 
 if __name__ == "__main__":
