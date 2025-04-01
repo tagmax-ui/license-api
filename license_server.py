@@ -113,5 +113,26 @@ def reset_all_licenses():
 
     return jsonify({"success": True, "message": "Toutes les licences ont été supprimées."})
 
+
+@app.route("/get_balance", methods=["POST"])
+def get_balance():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    agency_name = data.get("agency_name")
+    agency_info = licenses.get(agency_name)
+
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "matrix_balance": agency_info.get("matrix_balance", 0),
+        "web_weighter_balance": agency_info.get("web_weighter_balance", 0)
+    })
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
