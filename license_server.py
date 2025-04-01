@@ -48,7 +48,11 @@ def use_credits():
 
 @app.route("/modify_credits", methods=["POST"])
 def modify_credits():
+
     auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
