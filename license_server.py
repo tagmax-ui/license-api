@@ -56,7 +56,8 @@ def modify_credits():
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
-    agency_name = auth.split("Bearer ")[1].strip()
+    data = request.get_json()
+    agency_name = data.get("agency_name")
     agency_info = licenses.get(agency_name)
 
     if not agency_info:
