@@ -28,6 +28,7 @@ class LicenceManagerFrame(Frame):
         # 🧾 Ligne 1 — Choix de l'agence
         Label(self, text="Agence:").grid(row=1, column=0, sticky="w")
         self.agency_combobox = ttk.Combobox(self, textvariable=self.agency_var, values=[], state="readonly")
+        self.agency_combobox.bind("<<ComboboxSelected>>", self.check_current_balance)
         self.agency_combobox.grid(row=1, column=1, columnspan=2, sticky="ew")
 
         # 📦 Ligne 2 — Solde Matriciel
@@ -119,7 +120,7 @@ class LicenceManagerFrame(Frame):
 
             if result.get("success"):
                 matrix = result.get("matrix_balance", "?")
-                weighter = result.get("web_weighter_balance", "?")
+                weighter = result.get("weighter_balance", "?")
 
                 self.matrix_balance_label.config(text=f"{matrix} crédits")
                 self.weighter_balance_label.config(text=f"{weighter} crédits")
@@ -141,7 +142,7 @@ class LicenceManagerFrame(Frame):
         data = {
             "agency_name": agency_name,
             "matrix_balance": 0,
-            "web_weighter_balance": 0
+            "weighter_balance": 0
         }
 
         try:
