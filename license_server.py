@@ -5,7 +5,7 @@ from logger_utils import CSVLogger
 
 
 app = Flask(__name__)
-admin_password = os.getenv("ADMIN_SECRET")
+admin_password = os.getenv("ADMIN_PASSWORD")
 
 # 🔁 Chargement et sauvegarde des licences persistantes juste ici.
 LICENSES_FILE = "/data/licenses.json"
@@ -31,12 +31,13 @@ def download_logs():
     auth = request.headers.get("Authorization")
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     try:
-        csv_path = "/data/logs.csv"
+        csv_path = os.path.join(os.getcwd(), "logs.csv")
         return send_file(
             csv_path,
             as_attachment=True,
-            attachment_filename="logs.csv",
+            download_name="logs.csv",  # Remplace attachment_filename par download_name
             mimetype="text/csv"
         )
     except Exception as e:
