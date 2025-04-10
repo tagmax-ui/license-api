@@ -3,47 +3,16 @@ import os
 import requests
 import json
 from dotenv import load_dotenv
-from datetime import datetime
+from logger_utils import CSVLogger
 
-# Import for Excel file management
-try:
-    from openpyxl import Workbook, load_workbook
-except ImportError:
-    print("Veuillez installer openpyxl (pip install openpyxl) pour activer la journalisation Excel.")
 
 load_dotenv()  # Charge le contenu du fichier .env
 
 API_URL = "https://license-api-h5um.onrender.com/modify_credits"
 SECRET = os.getenv("ADMIN_PASSWORD")  # ADMIN_PASSWORD is your secret token
 
-# ---------------------------- Excel Logger Class ----------------------------
-class ExcelLogger:
-    def __init__(self, file="update_log.xlsx"):
-        self.file = file
-        self.header = ["Date/Heure", "Client", "Balance Type", "Item Name", "Amount"]
-        if not os.path.exists(self.file):
-            wb = Workbook()
-            ws = wb.active
-            ws.append(self.header)
-            wb.save(self.file)
 
-    def log(self, client, balance_type, item_name, amount):
-        try:
-            wb = load_workbook(self.file)
-            ws = wb.active
-            ws.append([
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                client,
-                balance_type,
-                item_name,
-                amount
-            ])
-            wb.save(self.file)
-        except Exception as e:
-            print("Erreur lors de la journalisation :", e)
 
-# Global ExcelLogger instance shared by the application
-excel_logger = ExcelLogger()
 
 # -------------------------- Tkinter License Manager -------------------------
 class LicenceManagerFrame(Frame):
@@ -101,11 +70,11 @@ class LicenceManagerFrame(Frame):
         """
         Mise à jour des crédits pour l'agence courante.
         Les informations envoyées sont : agency_name, amount, balance_type,
-        et item_name. Un enregistrement de cet appel est ajouté dans le fichier Excel.
+        et item_name. Un enregistrement de cet appel est ajouté dans le fichier CSV.
         Lorsque le token est SECRET, le client est "Administration".
         """
         # Log the update with client = "Administration"
-        excel_logger.log("Administration", balance_type, item_name, amount)
+        CSVLogger.log("Administration", balance_type, item_name, amount)
 
         try:
             headers = {

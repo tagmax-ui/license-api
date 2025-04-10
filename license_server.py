@@ -1,15 +1,14 @@
-from licence_manager import excel_logger
 import os
 import json
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
+from logger_utils import CSVLogger
+
 
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_SECRET")
 
 # 🔁 Chargement et sauvegarde des licences persistantes juste ici.
 LICENSES_FILE = "/data/licenses.json"
-
-
 
 
 def load_licenses():
@@ -25,6 +24,23 @@ def save_licenses():
 
 
 licenses = load_licenses()
+
+
+@app.route("/download_logs", methods=["GET"])
+def download_logs():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    try:
+        csv_path = "/data/logs.csv"
+        return send_file(
+            csv_path,
+            as_attachment=True,
+            attachment_filename="logs.csv",
+            mimetype="text/csv"
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/download_licenses", methods=["GET"])
@@ -75,7 +91,8 @@ def use_credits():
 
     # Log the transaction using the ExcelLogger from licence_manager.py.
     # For usage, record the units as a negative value.
-    excel_logger.log(client, balance_type, item_name, -abs(units))
+    CSVLogger.log(client, balance_type, item_name, -abs(units))
+
 
     return jsonify({
         "success": True,
@@ -85,6 +102,7 @@ def use_credits():
 
 @app.route("/modify_credits", methods=["POST"])
 def modify_credits():
+    print("Entering modify_credits", flush=True)
     auth = request.headers.get("Authorization")
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
@@ -161,6 +179,7 @@ def reset_all_licenses():
 
 @app.route("/get_balance", methods=["POST"])
 def get_balance():
+    print("Entering get_balance", flush=True)
     auth = request.headers.get("Authorization")
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
