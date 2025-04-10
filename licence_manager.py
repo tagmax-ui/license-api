@@ -10,7 +10,7 @@ load_dotenv()  # Charge le contenu du fichier .env
 
 API_URL = "https://license-api-h5um.onrender.com/modify_credits"
 SECRET = os.getenv("ADMIN_PASSWORD")  # ADMIN_PASSWORD is your secret token
-
+csv_logger = CSVLogger(file="/data/logs.csv")
 
 
 
@@ -74,7 +74,7 @@ class LicenceManagerFrame(Frame):
         Lorsque le token est SECRET, le client est "Administration".
         """
         # Log the update with client = "Administration"
-        CSVLogger.log("Administration", balance_type, item_name, amount)
+        csv_logger.log("Administration", balance_type, item_name, amount)
 
         try:
             headers = {

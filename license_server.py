@@ -6,6 +6,7 @@ from logger_utils import CSVLogger
 
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_PASSWORD")
+csv_logger = CSVLogger(file="/data/logs.csv")
 
 # 🔁 Chargement et sauvegarde des licences persistantes juste ici.
 LICENSES_FILE = "/data/licenses.json"
@@ -93,7 +94,7 @@ def use_credits():
 
     # Log the transaction using the ExcelLogger from licence_manager.py.
     # For usage, record the units as a negative value.
-    CSVLogger.log(client, balance_type, item_name, -abs(units))
+    csv_logger.log(client, balance_type, item_name, -abs(units))
 
 
     return jsonify({
