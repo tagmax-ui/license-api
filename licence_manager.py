@@ -227,6 +227,7 @@ class LicenceManagerFrame(Frame):
     def add_matrix_credits(self):
         try:
             amount = int(self.amount_matrix_var.get()) * 1000
+            # "matrix" is used to match matrix_balance variable name.
             self.update_credits(amount=amount, balance_type='matrix', item_name="Crédit")
         except ValueError:
             self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde matriciel.")
@@ -234,6 +235,7 @@ class LicenceManagerFrame(Frame):
     def remove_matrix_credits(self):
         try:
             amount = int(self.amount_matrix_var.get()) * -1000
+            # "matrix" is used to match matrix_balance variable name.
             self.update_credits(amount=amount, balance_type='matrix', item_name="Débit")
         except ValueError:
             self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde matriciel.")
@@ -241,6 +243,7 @@ class LicenceManagerFrame(Frame):
     def add_weighter_credits(self):
         try:
             amount = int(self.amount_weighter_var.get()) * 1000
+            # "weigher" is used to match weighter_balance variable name.
             self.update_credits(amount=amount, balance_type='weighter', item_name="Crédit")
         except ValueError:
             self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde pondérateur.")
@@ -248,6 +251,7 @@ class LicenceManagerFrame(Frame):
     def remove_weighter_credits(self):
         try:
             amount = int(self.amount_weighter_var.get()) * -1000
+            # "weigher" is used to match weighter_balance variable name.
             self.update_credits(amount=amount, balance_type='weighter', item_name="Débit")
         except ValueError:
             self.result_label.config(text="⚠️ Entrez un nombre valide pour le solde pondérateur.")
