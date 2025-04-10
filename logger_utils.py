@@ -3,9 +3,9 @@ from datetime import datetime
 
 
 class CSVLogger:
-    def __init__(self, file="logs.csv"):
+    def __init__(self, file="/data/logs.csv"):
         self.file = file
-        # On crée le fichier avec un entête s'il n'existe pas encore
+        os.makedirs(os.path.dirname(self.file), exist_ok=True)
         if not os.path.exists(self.file):
             with open(self.file, "w", encoding="utf-8") as f:
                 f.write("Date/Heure,Client,Balance Type,Item Name,Amount\n")

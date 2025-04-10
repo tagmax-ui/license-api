@@ -31,13 +31,13 @@ def download_logs():
     auth = request.headers.get("Authorization")
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
-
     try:
-        csv_path = os.path.join(os.getcwd(), "logs.csv")
+        # Définir le chemin du fichier CSV dans le volume persistant :
+        csv_path = "/data/logs.csv"
         return send_file(
             csv_path,
             as_attachment=True,
-            download_name="logs.csv",  # Remplace attachment_filename par download_name
+            download_name="logs.csv",
             mimetype="text/csv"
         )
     except Exception as e:
