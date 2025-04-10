@@ -9,6 +9,7 @@ admin_password = os.getenv("ADMIN_PASSWORD")
 def main():
     # Récupérer le token admin depuis l'environnement
     admin_token = os.getenv("ADMIN_PASSWORD")
+    print("admin_token", admin_token)
     if not admin_token:
         print("Erreur : la variable d'environnement ADMIN_PASSWORD n'est pas définie.")
         return

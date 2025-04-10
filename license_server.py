@@ -28,6 +28,7 @@ licenses = load_licenses()
 
 @app.route("/download_logs", methods=["GET"])
 def download_logs():
+    print("admin_password from env:", admin_password, flush=True)
     auth = request.headers.get("Authorization")
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
