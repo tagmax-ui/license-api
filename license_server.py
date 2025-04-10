@@ -1,28 +1,48 @@
-from flask import Flask, request, jsonify
-from datetime import datetime
+from licence_manager import excel_logger
 import os
-
-# Import the ExcelLogger class from licence_manager.py
-from licence_manager import ExcelLogger
+import json
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
+admin_password = os.getenv("ADMIN_SECRET")
 
-# Dummy licenses dictionary and save_licenses() function for demonstration.
-licenses = {
-    "example_agency": {
-        "matrix_balance": 5000,
-        "weighter_balance": 3000
-    }
-}
+# 🔁 Chargement et sauvegarde des licences persistantes juste ici.
+LICENSES_FILE = "/data/licenses.json"
+
+
+
+
+def load_licenses():
+    if os.path.exists(LICENSES_FILE):
+        with open(LICENSES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 
 def save_licenses():
-    # Dummy function to simulate persistence.
-    pass
+    with open(LICENSES_FILE, "w", encoding="utf-8") as f:
+        json.dump(licenses, f, indent=2, ensure_ascii=False)
 
 
-# Re-use the global ExcelLogger instance from licence_manager.py.
-excel_logger = ExcelLogger()
+licenses = load_licenses()
+
+
+@app.route("/download_licenses", methods=["GET"])
+def download_licenses():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    try:
+        with open(LICENSES_FILE, "r", encoding="utf-8") as f:
+            data = f.read()
+        return data, 200, {"Content-Type": "application/json"}
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/")
+def home():
+    return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
 
 
 @app.route("/use_credits", methods=["POST"])
@@ -63,5 +83,100 @@ def use_credits():
     })
 
 
+@app.route("/modify_credits", methods=["POST"])
+def modify_credits():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
+
+    data = request.get_json()
+    agency_name = data.get("agency_name")
+    agency_info = licenses.get(agency_name)
+
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    amount = data.get("amount", 0)
+    balance_type = data.get("balance_type")
+
+    if balance_type not in ("matrix_balance", "weighter_balance"):
+        return jsonify({"success": False, "error": "Invalid balance type"}), 400
+
+    agency_info[balance_type] = agency_info.get(balance_type, 0) + amount
+
+    save_licenses()
+
+    return jsonify({
+        "success": True,
+        "new_balance": agency_info[balance_type]
+    })
+
+
+@app.route("/list_agencies", methods=["GET"])
+def list_agencies():
+    return jsonify(list(licenses.keys()))
+
+
+@app.route("/add_agency", methods=["POST"])
+def add_agency():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    agency_name = data.get("agency_name")
+    matrix_balance = data.get("matrix_balance", 0)
+    weighter_balance = data.get("weighter_balance", 0)
+
+    if not agency_name:
+        return jsonify({"success": False, "error": "Missing agency_name"}), 400
+
+    if agency_name in licenses:
+        return jsonify({"success": False, "error": "Agency already exists"}), 409
+
+    licenses[agency_name] = {
+        "matrix_balance": matrix_balance,
+        "weighter_balance": weighter_balance
+    }
+
+    save_licenses()
+
+    return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
+
+
+@app.route("/reset_all_licenses", methods=["POST"])
+def reset_all_licenses():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    licenses.clear()
+    save_licenses()
+
+    return jsonify({"success": True, "message": "Toutes les licences ont été supprimées."})
+
+
+@app.route("/get_balance", methods=["POST"])
+def get_balance():
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
+
+    agency_name = auth.split("Bearer ")[1].strip()
+    agency_info = licenses.get(agency_name)
+
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "matrix_balance": agency_info.get("matrix_balance", 0),
+        "weighter_balance": agency_info.get("weighter_balance", 0)
+    })
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000)
