@@ -16,10 +16,19 @@ LICENSES_FILE = "/data/licenses.json"
 
 @app.route("/all-lists", methods=["GET"])
 def get_my_lists():
-    print("admin_password from env:", admin_password, flush=True)
     auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
+    if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    token = auth.split("Bearer ")[1].strip()
+
+
+    # On accepte soit le mot de passe admin, soit un token d'agence valide
+    current_licenses = load_licenses()
+
+    if token != admin_password and token not in current_licenses:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     data = {
         "english_connector_list": tagmax_and_matrix_lists.generate_english_connector_list(),
         "capitalized_english_connector_list": tagmax_and_matrix_lists.generate_capitalized_english_connector_list(),
