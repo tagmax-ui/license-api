@@ -1,49 +1,19 @@
-from flask import Flask, request, jsonify, abort
 import os
+from flask import Flask, jsonify
+from lists import tagmax_and_matrix_lists
 
 app = Flask(__name__)
 
-# Vos listes (à stocker en toute sécurité sur le serveur)
-masculine_exceptions = ["abaque", "abatage", "abattage", "abécédaire", "abime", "abîme", "abkhaze", "abolitionniste",
-                        ...]
-fe_ves_words = [
-    ("knife", "knives"),
-    ("wife", "wives"),
-    ("life", "lives"),
-    ("calf", "calves"),
-    ("leaf", "leaves"),
-    ("shelf", "shelves"),
-    ("wolf", "wolves"),
-    ("self", "selves"),
-    ("thief", "thieves"),
-    ("half", "halves")
-]
-userkey_dictionary_keys = [
-    ("user_key_full_name", "Nom complet", str, True),
-    ("user_key_first_name", "Prénom", str, True),
-    ("user_key_family_name", "Nom de famille", str, True),
-    # … autres tuples
-]
-
-# Exemple de clé API stockée dans une variable d'environnement ou en configuration sécurisée
-VALID_API_KEY = "TOPSECRET123"
-
-
-@app.route("/lists", methods=["GET"])
-def get_lists():
-    # On attend une clé API transmise dans les headers
-    api_key = request.headers.get("Authorization")
-    if not api_key or api_key != f"Bearer {VALID_API_KEY}":
-        abort(401, description="Clé API invalide ou absente")
-
-    # Regrouper vos listes dans un dictionnaire
+@app.route("/all-lists", methods=["GET"])
+def get_my_lists():
+    # Créer un dictionnaire avec les données importées
     data = {
-        "masculine_exceptions": masculine_exceptions,
-        "fe_ves_words": fe_ves_words,
-        "userkey_dictionary_keys": userkey_dictionary_keys
+        "english_connector_list": tagmax_and_matrix_lists.generate_english_connector_list(),
+        "capitalized_english_connector_list": tagmax_and_matrix_lists.generate_capitalized_english_connector_list(),
+        "attributes_list": tagmax_and_matrix_lists.attributes_list,
+        "GOC_clients": tagmax_and_matrix_lists.GOC_clients
     }
     return jsonify(data)
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
