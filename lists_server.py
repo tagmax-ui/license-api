@@ -28,7 +28,7 @@ userkey_dictionary_keys = [
 VALID_API_KEY = "TOPSECRET123"
 
 
-@app.route("/api/lists", methods=["GET"])
+@app.route("/lists", methods=["GET"])
 def get_lists():
     # On attend une clé API transmise dans les headers
     api_key = request.headers.get("Authorization")
