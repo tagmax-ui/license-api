@@ -4,10 +4,6 @@ services:
     env: python
     buildCommand: ""
     startCommand: "python license_server.py"
-  - type: web
-    name: lists-api
-    env: python
-    buildCommand: ""
-    startCommand: "python lists_server.py"
+
 
 

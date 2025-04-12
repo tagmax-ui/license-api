@@ -2,7 +2,7 @@ import os
 import json
 from flask import Flask, request, jsonify, send_file
 from logger_utils import CSVLogger
-
+from lists import tagmax_and_matrix_lists
 
 app = Flask(__name__)
 admin_password = os.getenv("ADMIN_PASSWORD")
@@ -11,6 +11,15 @@ csv_logger = CSVLogger(file="/data/logs.csv")
 # 🔁 Chargement et sauvegarde des licences persistantes juste ici.
 LICENSES_FILE = "/data/licenses.json"
 
+@app.route("/all-lists", methods=["GET"])
+def get_my_lists():
+    data = {
+        "english_connector_list": tagmax_and_matrix_lists.generate_english_connector_list(),
+        "capitalized_english_connector_list": tagmax_and_matrix_lists.generate_capitalized_english_connector_list(),
+        "attributes_list": tagmax_and_matrix_lists.attributes_list,
+        "GOC_clients": tagmax_and_matrix_lists.GOC_clients
+    }
+    return jsonify(data)
 
 def load_licenses():
     if os.path.exists(LICENSES_FILE):
