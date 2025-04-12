@@ -18,7 +18,7 @@ def fetch_lists(api_key):
 # Exemple d'utilisation :
 if __name__ == "__main__":
     # La clé API pourrait être fournie par l'utilisateur ou chargée de manière sécurisée depuis une variable d'environnement
-    user_api_key = "TOPSECRET"
+    user_api_key = "TOPSECRET123"
     lists = fetch_lists(user_api_key)
 
     # Maintenant, vous pouvez accéder aux listes récupérées
