@@ -3,8 +3,11 @@ import json
 from flask import Flask, request, jsonify, send_file
 from logger_utils import CSVLogger
 from lists import tagmax_and_matrix_lists
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+
+load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
 csv_logger = CSVLogger(file="/data/logs.csv")
 
@@ -13,6 +16,10 @@ LICENSES_FILE = "/data/licenses.json"
 
 @app.route("/all-lists", methods=["GET"])
 def get_my_lists():
+    print("admin_password from env:", admin_password, flush=True)
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
     data = {
         "english_connector_list": tagmax_and_matrix_lists.generate_english_connector_list(),
         "capitalized_english_connector_list": tagmax_and_matrix_lists.generate_capitalized_english_connector_list(),
