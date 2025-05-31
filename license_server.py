@@ -1,41 +1,37 @@
 import os
 import json
 from flask import Flask, request, jsonify, send_file
-from logger_utils import CSVLogger
-from lists import tagmax_and_matrix_lists
 from dotenv import load_dotenv
 
-app = Flask(__name__)
+# Logger CSV pour historique (simple exemple – à adapter à ta classe existante)
+import csv
+from datetime import datetime
 
+class CSVLogger:
+    def __init__(self, file):
+        self.file = file
+        # S'assurer que le fichier existe avec en-têtes
+        if not os.path.exists(self.file):
+            with open(self.file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "timestamp", "agency", "action", "item_name", "amount", "word_count", "tariff", "tariff_type"
+                ])
+
+    def log(self, agency, action, item_name, amount, word_count=None, tariff=None, tariff_type=None):
+        with open(self.file, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                datetime.now().isoformat(), agency, action, item_name, amount, word_count, tariff, tariff_type
+            ])
+
+
+app = Flask(__name__)
 load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
-csv_logger = CSVLogger(file="/data/logs.csv")
+csv_logger = CSVLogger(file="logs.csv")  # Mets ton chemin absolu si besoin
 
-# 🔁 Chargement et sauvegarde des licences persistantes juste ici.
-LICENSES_FILE = "/data/licenses.json"
-
-@app.route("/all-lists", methods=["GET"])
-def get_my_lists():
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-
-    token = auth.split("Bearer ")[1].strip()
-
-
-    # On accepte soit le mot de passe admin, soit un token d'agence valide
-    current_licenses = load_licenses()
-
-    if token != admin_password and token not in current_licenses:
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-
-    data = {
-        "english_connector_list": tagmax_and_matrix_lists.generate_english_connector_list(),
-        "capitalized_english_connector_list": tagmax_and_matrix_lists.generate_capitalized_english_connector_list(),
-        "attributes_list": tagmax_and_matrix_lists.attributes_list,
-        "GOC_clients": tagmax_and_matrix_lists.GOC_clients
-    }
-    return jsonify(data)
+LICENSES_FILE = "licenses.json"  # Mets ton chemin absolu si besoin
 
 def load_licenses():
     if os.path.exists(LICENSES_FILE):
@@ -43,24 +39,133 @@ def load_licenses():
             return json.load(f)
     return {}
 
-
 def save_licenses():
     with open(LICENSES_FILE, "w", encoding="utf-8") as f:
         json.dump(licenses, f, indent=2, ensure_ascii=False)
 
-
 licenses = load_licenses()
 
+@app.route("/")
+def home():
+    return "🎉 Bienvenue sur l’API de facturation/dette. Tout fonctionne!"
+
+@app.route("/add_agency", methods=["POST"])
+def add_agency():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    agency_name = data.get("agency_name")
+    weighter_tariff = data.get("weighter_tariff", 0.019)
+    terminology_tariff = data.get("terminology_tariff", 0.025)
+    pretranslation_tariff = data.get("pretranslation_tariff", 0.012)
+
+    if not agency_name:
+        return jsonify({"success": False, "error": "Missing agency_name"}), 400
+
+    if agency_name in licenses:
+        return jsonify({"success": False, "error": "Agency already exists"}), 409
+
+    licenses[agency_name] = {
+        "debt": 0,
+        "weighter_tariff": weighter_tariff,
+        "terminology_tariff": terminology_tariff,
+        "pretranslation_tariff": pretranslation_tariff
+    }
+    save_licenses()
+    return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
+
+@app.route("/use_words", methods=["POST"])
+def use_words():
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
+
+    client = auth.split("Bearer ")[1].strip()
+    agency_info = licenses.get(client)
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    data = request.get_json()
+    word_count = data.get("word_count", 0)
+    tariff_type = data.get("tariff_type")  # "weighter", "terminology", "pretranslation"
+    item_name = data.get("item_name", "")
+
+    valid_tariffs = {"weighter", "terminology", "pretranslation"}
+    if tariff_type not in valid_tariffs:
+        return jsonify({"success": False, "error": "Invalid tariff type"}), 400
+
+    tariff_key = f"{tariff_type}_tariff"
+    tariff = agency_info.get(tariff_key)
+    if tariff is None:
+        return jsonify({"success": False, "error": f"No tariff set for type {tariff_type}"}), 400
+
+    cost = word_count * tariff
+    agency_info["debt"] = agency_info.get("debt", 0) + cost
+    save_licenses()
+
+    csv_logger.log(client, "debt_increase", item_name, cost, word_count=word_count, tariff=tariff, tariff_type=tariff_type)
+
+    return jsonify({
+        "success": True,
+        "debited": cost,
+        "new_debt": agency_info["debt"]
+    })
+
+@app.route("/register_payment", methods=["POST"])
+def register_payment():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    agency_name = data.get("agency_name")
+    payment = data.get("amount")
+
+    agency_info = licenses.get(agency_name)
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    agency_info["debt"] = max(agency_info.get("debt", 0) - payment, 0)
+    save_licenses()
+    csv_logger.log(agency_name, "payment", "", -payment)
+
+    return jsonify({
+        "success": True,
+        "new_debt": agency_info["debt"]
+    })
+
+@app.route("/get_debt", methods=["POST"])
+def get_debt():
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
+
+    agency_name = auth.split("Bearer ")[1].strip()
+    agency_info = licenses.get(agency_name)
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "debt": agency_info.get("debt", 0),
+        "weighter_tariff": agency_info.get("weighter_tariff", 0),
+        "terminology_tariff": agency_info.get("terminology_tariff", 0),
+        "pretranslation_tariff": agency_info.get("pretranslation_tariff", 0)
+    })
+
+@app.route("/list_agencies", methods=["GET"])
+def list_agencies():
+    return jsonify(list(licenses.keys()))
 
 @app.route("/download_logs", methods=["GET"])
 def download_logs():
-    print("admin_password from env:", admin_password, flush=True)
     auth = request.headers.get("Authorization")
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
     try:
-        # Définir le chemin du fichier CSV dans le volume persistant :
-        csv_path = "/data/logs.csv"
+        csv_path = "logs.csv"
         return send_file(
             csv_path,
             as_attachment=True,
@@ -69,7 +174,6 @@ def download_logs():
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 @app.route("/download_licenses", methods=["GET"])
 def download_licenses():
@@ -83,147 +187,24 @@ def download_licenses():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-@app.route("/")
-def home():
-    return "🎉 Bienvenue sur l’API de licence. Tout fonctionne!"
-
-
-@app.route("/use_credits", methods=["POST"])
-def use_credits():
-    # Get the Bearer token, which also serves as the client (agency) name.
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
-
-    client = auth.split("Bearer ")[1].strip()
-    agency_info = licenses.get(client)
-
-    if not agency_info:
-        return jsonify({"success": False, "error": "Agency not found"}), 404
-
-    data = request.get_json()
-    units = data.get("units", 1000)
-    balance_type = data.get("balance_type", "matrix_balance")  # Default is matrix_balance.
-    item_name = data.get("item_name", "")
-
-    if balance_type not in ("matrix_balance", "weighter_balance"):
-        return jsonify({"success": False, "error": "Invalid balance type"}), 400
-
-    if agency_info.get(balance_type, 0) < units:
-        return jsonify({"success": False, "error": "Insufficient credits"}), 402
-
-    # Deduct the credits.
-    agency_info[balance_type] -= units
-    save_licenses()
-
-    # Log the transaction using the ExcelLogger from licence_manager.py.
-    # For usage, record the units as a negative value.
-    csv_logger.log(client, balance_type, item_name, -abs(units))
-
-
-    return jsonify({
-        "success": True,
-        "remaining": agency_info[balance_type]
-    })
-
-
-@app.route("/modify_credits", methods=["POST"])
-def modify_credits():
-    print("Entering modify_credits", flush=True)
-    auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-
-    if not auth or not auth.startswith("Bearer "):
-        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
-
-    data = request.get_json()
-    agency_name = data.get("agency_name")
-    agency_info = licenses.get(agency_name)
-
-    if not agency_info:
-        return jsonify({"success": False, "error": "Agency not found"}), 404
-
-    amount = data.get("amount", 0)
-    balance_type = data.get("balance_type")
-
-    if balance_type not in ("matrix_balance", "weighter_balance"):
-        return jsonify({"success": False, "error": "Invalid balance type"}), 400
-
-    agency_info[balance_type] = agency_info.get(balance_type, 0) + amount
-
-    save_licenses()
-
-    return jsonify({
-        "success": True,
-        "new_balance": agency_info[balance_type]
-    })
-
-
-@app.route("/list_agencies", methods=["GET"])
-def list_agencies():
-    return jsonify(list(licenses.keys()))
-
-
-@app.route("/add_agency", methods=["POST"])
-def add_agency():
+@app.route("/delete_agency", methods=["POST"])
+def delete_agency():
     auth = request.headers.get("Authorization")
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
     agency_name = data.get("agency_name")
-    matrix_balance = data.get("matrix_balance", 0)
-    weighter_balance = data.get("weighter_balance", 0)
-
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency_name"}), 400
 
-    if agency_name in licenses:
-        return jsonify({"success": False, "error": "Agency already exists"}), 409
-
-    licenses[agency_name] = {
-        "matrix_balance": matrix_balance,
-        "weighter_balance": weighter_balance
-    }
-
-    save_licenses()
-
-    return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
-
-
-@app.route("/reset_all_licenses", methods=["POST"])
-def reset_all_licenses():
-    auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-
-    licenses.clear()
-    save_licenses()
-
-    return jsonify({"success": True, "message": "Toutes les licences ont été supprimées."})
-
-
-@app.route("/get_balance", methods=["POST"])
-def get_balance():
-    print("Entering get_balance", flush=True)
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
-
-    agency_name = auth.split("Bearer ")[1].strip()
-    agency_info = licenses.get(agency_name)
-
-    if not agency_info:
+    if agency_name not in licenses:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
-    return jsonify({
-        "success": True,
-        "matrix_balance": agency_info.get("matrix_balance", 0),
-        "weighter_balance": agency_info.get("weighter_balance", 0)
-    })
+    del licenses[agency_name]
+    save_licenses()
 
+    return jsonify({"success": True, "message": f"Agency '{agency_name}' deleted."})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
