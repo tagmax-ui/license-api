@@ -123,7 +123,7 @@ class LicenceManagerFrame(Frame):
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
     def refresh_debt_display(self, *_):
         agency_name = self.agency_var.get()
@@ -149,7 +149,7 @@ class LicenceManagerFrame(Frame):
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
             self.debt_label.config(text="Erreur")
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
     def add_work(self):
         try:
@@ -177,7 +177,7 @@ class LicenceManagerFrame(Frame):
         except ValueError:
             self.result_label.config(text="⚠️ Nombre de mots invalide.")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
     def register_payment(self):
         try:
@@ -199,7 +199,7 @@ class LicenceManagerFrame(Frame):
         except ValueError:
             self.result_label.config(text="⚠️ Montant de paiement invalide.")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
     def create_agency(self):
         agency_name = self.new_agency_var.get().strip()
@@ -224,7 +224,7 @@ class LicenceManagerFrame(Frame):
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
     def delete_agency(self):
         agency_name = self.agency_var.get()
@@ -245,7 +245,7 @@ class LicenceManagerFrame(Frame):
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
 if __name__ == "__main__":
     root = Tk()
