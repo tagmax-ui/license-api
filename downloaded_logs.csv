@@ -1,2 +1,4 @@
-Date/Heure,Client,Balance Type,Item Name,Amount
-2025-04-10 06:16:55,symcom_20250401,matrix_balance,,-387
+timestamp,agency,action,item_name,amount,word_count,tariff,tariff_type
+2025-05-31T19:26:57.697570,symcom_20250531,debt_increase,ttttttt,81.9,3276,0.025,terminology
+2025-06-01T04:09:18.409237,symcom_20250531,debt_increase,Test,0.25,10,0.025,terminology
+2025-06-01T04:12:25.004597,symcom_20250531,debt_increase,Test,0.25,10,0.025,terminology

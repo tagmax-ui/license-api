@@ -101,7 +101,7 @@ def use_words():
     if tariff is None:
         return jsonify({"success": False, "error": f"No tariff set for type {tariff_type}"}), 400
 
-    cost = word_count * tariff
+    cost = round(word_count * tariff, 2)
     agency_info["debt"] = agency_info.get("debt", 0) + cost
     save_licenses()
 
@@ -138,21 +138,19 @@ def register_payment():
 
 @app.route("/get_debt", methods=["POST"])
 def get_debt():
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
-
-    agency_name = auth.split("Bearer ")[1].strip()
-    agency_info = licenses.get(agency_name)
+    # ... code actuel ...
+    agency_info = licenses.get(client)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
-
+    debt = agency_info.get("debt", 0)
     return jsonify({
         "success": True,
-        "debt": agency_info.get("debt", 0),
-        "weighter_tariff": agency_info.get("weighter_tariff", 0),
-        "terminology_tariff": agency_info.get("terminology_tariff", 0),
-        "pretranslation_tariff": agency_info.get("pretranslation_tariff", 0)
+        "debt": debt,
+        "tariffs": {
+            "weighter_tariff": agency_info.get("weighter_tariff", ""),
+            "terminology_tariff": agency_info.get("terminology_tariff", ""),
+            "pretranslation_tariff": agency_info.get("pretranslation_tariff", ""),
+        }
     })
 
 @app.route("/list_agencies", methods=["GET"])
@@ -205,6 +203,35 @@ def delete_agency():
     save_licenses()
 
     return jsonify({"success": True, "message": f"Agency '{agency_name}' deleted."})
+
+@app.route("/update_tariffs", methods=["POST"])
+def update_tariffs():
+    auth = request.headers.get("Authorization")
+    if not auth or auth != f"Bearer {os.environ.get('ADMIN_PASSWORD')}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    agency_name = data.get("agency_name")
+    weighter_tariff = data.get("weighter_tariff")
+    terminology_tariff = data.get("terminology_tariff")
+    pretranslation_tariff = data.get("pretranslation_tariff")
+    if not agency_name:
+        return jsonify({"success": False, "error": "Missing agency name"}), 400
+
+    agency_info = licenses.get(agency_name)
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    # Update only those that are present in data
+    if weighter_tariff is not None:
+        agency_info["weighter_tariff"] = float(weighter_tariff)
+    if terminology_tariff is not None:
+        agency_info["terminology_tariff"] = float(terminology_tariff)
+    if pretranslation_tariff is not None:
+        agency_info["pretranslation_tariff"] = float(pretranslation_tariff)
+
+    save_licenses()
+    return jsonify({"success": True, "agency_info": agency_info})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

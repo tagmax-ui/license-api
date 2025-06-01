@@ -1,4 +1,4 @@
-from tkinter import Tk, Frame, Label, Entry, Button, StringVar, ttk
+from tkinter import Tk, Frame, Label, Entry, Button, StringVar, ttk, LabelFrame
 import os
 import requests
 import json
@@ -26,6 +26,9 @@ class LicenceManagerFrame(Frame):
         self.item_name_var = StringVar()
         self.payment_var = StringVar()
         self.new_agency_var = StringVar()
+        self.weighter_tariff_var = StringVar()
+        self.terminology_tariff_var = StringVar()
+        self.pretranslation_tariff_var = StringVar()
         self.result_label = Label(self, text="Système de facturation post-payé (DETTE)", fg="red")
         self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
 
@@ -36,10 +39,20 @@ class LicenceManagerFrame(Frame):
         self.agency_combobox.grid(row=1, column=1, columnspan=2, sticky="ew")
         Button(self, text="Rafraîchir agences", command=self.fetch_agencies).grid(row=1, column=3)
 
+        self.frame_tariffs = LabelFrame(master=self, text="Tarification")
+        self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
+        Label(self.frame_tariffs, text="Tarif Pondérateur (mot):").grid(row=7, column=0, sticky="w")
+        Entry(self.frame_tariffs, textvariable=self.weighter_tariff_var, width=8).grid(row=7, column=1, sticky="w")
+        Label(self.frame_tariffs, text="Tarif Terminologie (mot):").grid(row=7, column=2, sticky="w")
+        Entry(self.frame_tariffs, textvariable=self.terminology_tariff_var, width=8).grid(row=7, column=3, sticky="w")
+        Label(self.frame_tariffs, text="Tarif Prétraduction (mot):").grid(row=7, column=4, sticky="w")
+        Entry(self.frame_tariffs, textvariable=self.pretranslation_tariff_var, width=8).grid(row=7, column=5, sticky="w")
+        Button(self.frame_tariffs, text="Enregistrer tarifs", command=self.update_tariffs).grid(row=7, column=6, padx=(10, 0))
+
         # 2. Current Debt
         Label(self, text="Dette actuelle:").grid(row=2, column=0, sticky="w")
         self.debt_label = Label(self, text="0.00 $")
-        self.debt_label.grid(row=2, column=1, sticky="w")
+        self.debt_label.grid(row=3, column=1, sticky="w")
         Button(self, text="Rafraîchir dette", command=self.refresh_debt_display).grid(row=2, column=3)
 
         # 3. Add work (increase debt)
@@ -81,6 +94,37 @@ class LicenceManagerFrame(Frame):
         except Exception as e:
             self.result_label.config(text=f"❌ Impossible de récupérer les agences: {e}")
 
+    def update_tariffs(self):
+        agency_name = self.agency_var.get()
+        if not agency_name:
+            self.result_label.config(text="⚠️ Sélectionnez une agence pour modifier ses tarifs.")
+            return
+
+        try:
+            weighter_tariff = float(self.weighter_tariff_var.get())
+            terminology_tariff = float(self.terminology_tariff_var.get())
+            pretranslation_tariff = float(self.pretranslation_tariff_var.get())
+        except ValueError:
+            self.result_label.config(text="⚠️ Entrez des valeurs valides pour les tarifs.")
+            return
+
+        headers = {"Authorization": f"Bearer {SECRET}"}
+        data = {
+            "agency_name": agency_name,
+            "weighter_tariff": weighter_tariff,
+            "terminology_tariff": terminology_tariff,
+            "pretranslation_tariff": pretranslation_tariff
+        }
+        try:
+            response = requests.post("https://license-api-h5um.onrender.com/update_tariffs", json=data, headers=headers)
+            result = response.json()
+            if result.get("success"):
+                self.result_label.config(text="✅ Tarifs mis à jour.")
+            else:
+                self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
+        except Exception as e:
+            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+
     def refresh_debt_display(self, *_):
         agency_name = self.agency_var.get()
         if not agency_name:
@@ -89,16 +133,16 @@ class LicenceManagerFrame(Frame):
         try:
             headers = {"Authorization": f"Bearer {agency_name}"}
             response = requests.post(API_URL_GET_DEBT, headers=headers)
-            try:
-                result = response.json()
-            except Exception as error:
-                self.debt_label.config(text="Erreur")
-                self.result_label.config(text=f"❌ Erreur réseau: {error} — Réponse brute : {response.text}")
-                return
             result = response.json()
             if result.get("success"):
                 debt = result.get("debt", 0)
                 self.debt_label.config(text=f"{debt:.2f} $")
+                # Nouvelle requête pour obtenir les tarifs
+                tariffs = result.get("tariffs")
+                if tariffs:
+                    self.weighter_tariff_var.set(tariffs.get("weighter_tariff", ""))
+                    self.terminology_tariff_var.set(tariffs.get("terminology_tariff", ""))
+                    self.pretranslation_tariff_var.set(tariffs.get("pretranslation_tariff", ""))
                 self.result_label.config(text="")
             else:
                 self.debt_label.config(text="Erreur")
