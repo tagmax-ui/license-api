@@ -1,4 +1,5 @@
 timestamp,agency,action,item_name,amount,word_count,tariff,tariff_type
-2025-05-31T19:26:57.697570,symcom_20250531,debt_increase,ttttttt,81.9,3276,0.025,terminology
-2025-06-01T04:09:18.409237,symcom_20250531,debt_increase,Test,0.25,10,0.025,terminology
-2025-06-01T04:12:25.004597,symcom_20250531,debt_increase,Test,0.25,10,0.025,terminology
+2025-06-01T05:07:21.416349,test_agence,debt_increase,fausse_demande,19.0,1000,0.019,weighter
+2025-06-01T05:14:21.712988,symcom_20250531,debt_increase,essai,20.0,1000,0.02,weighter
+2025-06-01T05:17:27.078442,test_agence,debt_increase,essai,190.0,10000,0.019,weighter
+2025-06-01T05:18:16.210500,symcom_20250531,debt_increase,essai2,2.0,1000,0.002,terminology

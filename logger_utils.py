@@ -1,16 +1,21 @@
 import os
 from datetime import datetime
-
+import csv
 
 class CSVLogger:
-    def __init__(self, file="/data/logs.csv"):
+    def __init__(self, file):
         self.file = file
-        os.makedirs(os.path.dirname(self.file), exist_ok=True)
+        # S'assurer que le fichier existe avec en-têtes
         if not os.path.exists(self.file):
-            with open(self.file, "w", encoding="utf-8") as f:
-                f.write("Date/Heure,Client,Balance Type,Item Name,Amount\n")
+            with open(self.file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "timestamp", "agency", "action", "item_name", "amount", "word_count", "tariff", "tariff_type"
+                ])
 
-    def log(self, client, balance_type, item_name, amount):
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(self.file, "a", encoding="utf-8") as f:
-            f.write(f"{now},{client},{balance_type},{item_name},{amount}\n")
+    def log(self, agency, action, item_name, amount, word_count=None, tariff=None, tariff_type=None):
+        with open(self.file, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                datetime.now().isoformat(), agency, action, item_name, amount, word_count, tariff, tariff_type
+            ])
