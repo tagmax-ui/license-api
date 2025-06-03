@@ -26,6 +26,6 @@ def get_user(username, password):
 
 # Exemple d’utilisation :
 if __name__ == "__main__":
-    register_user("Jessy", "motdepasse123", user_key_email="jessy@example.com", user_key_full_name="Jessy LaPointe")
+    register_user("Jessy2", "motdepasse123", user_key_email="jessy@example.com", user_key_full_name="Jessy LaPointe")
     get_user("Jessy", "motdepasse123")
     get_user("Jessy", "fauxmotdepasse")

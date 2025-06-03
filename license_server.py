@@ -65,21 +65,22 @@ def add_agency():
     save_licenses()
     return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
 
-@app.route("/use_words", methods=["POST"])
-def use_words():
+@app.route("/charge", methods=["POST"])
+def charge():
     auth = request.headers.get("Authorization")
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
-    client = auth.split("Bearer ")[1].strip()
-    agency_info = licenses.get(client)
+    agency_name = auth.split("Bearer ")[1].strip()
+    agency_info = licenses.get(agency_name)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
     data = request.get_json()
-    word_count = data.get("word_count", 0)
+    raw_word_count = data.get("raw_word_count", 0)
+    weighted_word_count = data.get("weighted_word_count", 0)
     tariff_type = data.get("tariff_type")  # "weighter", "terminology", "pretranslation"
-    item_name = data.get("item_name", "")
+    order_number = data.get("order_number", "")
 
     valid_tariffs = {"weighter", "terminology", "pretranslation"}
     if tariff_type not in valid_tariffs:
@@ -90,15 +91,21 @@ def use_words():
     if tariff is None:
         return jsonify({"success": False, "error": f"No tariff set for type {tariff_type}"}), 400
 
-    cost = round(word_count * tariff, 2)
-    agency_info["debt"] = agency_info.get("debt", 0) + cost
+    amount = round(weighted_word_count * tariff, 2)
+    agency_info["debt"] = agency_info.get("debt", 0) + amount
     save_licenses()
 
-    csv_logger.log(client, "debt_increase", item_name, cost, word_count=word_count, tariff=tariff, tariff_type=tariff_type)
+    csv_logger.log(agency=agency_name,
+                   order_number=order_number,
+                   raw_words=raw_word_count,
+                   weighted_words=weighted_word_count,
+                   tariff_type=tariff_type,
+                   tariff=tariff,
+                   amount=amount)
 
     return jsonify({
         "success": True,
-        "debited": cost,
+        "debited": amount,
         "new_debt": agency_info["debt"]
     })
 

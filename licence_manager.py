@@ -1,7 +1,7 @@
 from tkinter import Tk, Frame, Label, Entry, Button, StringVar, ttk, LabelFrame
 import os
 import requests
-import json
+from tkinter import messagebox
 from dotenv import load_dotenv
 from logger_utils import CSVLogger
 
@@ -12,8 +12,10 @@ API_URL_REGISTER_PAYMENT = "https://license-api-h5um.onrender.com/register_payme
 API_URL_ADD_AGENCY = "https://license-api-h5um.onrender.com/add_agency"
 API_URL_LIST_AGENCIES = "https://license-api-h5um.onrender.com/list_agencies"
 API_URL_GET_DEBT = "https://license-api-h5um.onrender.com/get_debt"
+API_URL_DOWNLOAD = "https://license-api-h5um.onrender.com/download_logs"
 SECRET = os.getenv("ADMIN_PASSWORD")
 csv_logger = CSVLogger(file="/data/logs.csv")  # Adapt path as needed
+
 
 class LicenceManagerFrame(Frame):
     def __init__(self, master=None):
@@ -21,7 +23,7 @@ class LicenceManagerFrame(Frame):
         self.pack(padx=10, pady=10)
 
         self.agency_var = StringVar()
-        self.word_count_var = StringVar()
+        self.weighted_word_count_var = StringVar()
         self.tariff_type_var = StringVar(value="weighter")
         self.item_name_var = StringVar()
         self.payment_var = StringVar()
@@ -46,8 +48,10 @@ class LicenceManagerFrame(Frame):
         Label(self.frame_tariffs, text="Tarif Terminologie (mot):").grid(row=7, column=2, sticky="w")
         Entry(self.frame_tariffs, textvariable=self.terminology_tariff_var, width=8).grid(row=7, column=3, sticky="w")
         Label(self.frame_tariffs, text="Tarif Prétraduction (mot):").grid(row=7, column=4, sticky="w")
-        Entry(self.frame_tariffs, textvariable=self.pretranslation_tariff_var, width=8).grid(row=7, column=5, sticky="w")
-        Button(self.frame_tariffs, text="Enregistrer tarifs", command=self.update_tariffs).grid(row=7, column=6, padx=(10, 0))
+        Entry(self.frame_tariffs, textvariable=self.pretranslation_tariff_var, width=8).grid(row=7, column=5,
+                                                                                             sticky="w")
+        Button(self.frame_tariffs, text="Enregistrer tarifs", command=self.update_tariffs).grid(row=7, column=6,
+                                                                                                padx=(10, 0))
 
         # 2. Current Debt
         Label(self, text="Dette actuelle:").grid(row=2, column=0, sticky="w")
@@ -58,24 +62,31 @@ class LicenceManagerFrame(Frame):
         # 3. Add work (increase debt)
         Label(self, text="Ajouter du travail").grid(row=3, column=0, sticky="w", pady=(10, 0))
         Label(self, text="Mots:").grid(row=4, column=0, sticky="w")
-        Entry(self, textvariable=self.word_count_var, width=10).grid(row=4, column=1, sticky="w")
+        Entry(self, textvariable=self.weighted_word_count_var, width=10).grid(row=4, column=1, sticky="w")
         Label(self, text="Service:").grid(row=4, column=2, sticky="w")
-        self.tariff_combobox = ttk.Combobox(self, textvariable=self.tariff_type_var, values=["weighter", "terminology", "pretranslation"], state="readonly", width=15)
+        self.tariff_combobox = ttk.Combobox(self, textvariable=self.tariff_type_var,
+                                            values=["weighter", "terminology", "pretranslation"], state="readonly",
+                                            width=15)
         self.tariff_combobox.grid(row=4, column=3, sticky="w")
         Label(self, text="Description:").grid(row=4, column=4, sticky="w")
         Entry(self, textvariable=self.item_name_var, width=15).grid(row=4, column=5, sticky="w")
-        Button(self, text="Ajouter à la dette", command=self.add_work).grid(row=4, column=6, padx=(10,0))
+        Button(self, text="Ajouter à la dette", command=self.add_work).grid(row=4, column=6, padx=(10, 0))
 
         # 4. Register payment (reduce debt)
         Label(self, text="Paiement reçu ($)").grid(row=5, column=0, sticky="w", pady=(10, 0))
         Entry(self, textvariable=self.payment_var, width=10).grid(row=5, column=1, sticky="w")
-        Button(self, text="Enregistrer paiement", command=self.register_payment).grid(row=5, column=2, padx=(10,0), pady=(10,0))
+        Button(self, text="Enregistrer paiement", command=self.register_payment).grid(row=5, column=2, padx=(10, 0),
+                                                                                      pady=(10, 0))
 
         # 5. Add agency
         Label(self, text="Nouvelle agence").grid(row=6, column=0, sticky="w", pady=(20, 0))
-        Entry(self, textvariable=self.new_agency_var, width=20).grid(row=6, column=1, columnspan=2, sticky="ew", pady=(20, 0))
+        Entry(self, textvariable=self.new_agency_var, width=20).grid(row=6, column=1, columnspan=2, sticky="ew",
+                                                                     pady=(20, 0))
         Button(self, text="Ajouter agence", command=self.create_agency).grid(row=6, column=3, pady=(20, 0))
         Button(self, text="Supprimer agence", command=self.delete_agency, fg="red").grid(row=6, column=4, pady=(20, 0))
+
+
+        Button(self, text="Télécharger les transactions", command=self.download_transactions).grid(row=7, column=3, pady=(20, 0))
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
@@ -154,7 +165,7 @@ class LicenceManagerFrame(Frame):
     def add_work(self):
         try:
             agency = self.agency_var.get()
-            word_count = int(self.word_count_var.get())
+            word_count = int(self.weighted_word_count_var.get())
             tariff_type = self.tariff_type_var.get()
             item_name = self.item_name_var.get()
             if not agency or word_count <= 0 or not tariff_type:
@@ -171,7 +182,10 @@ class LicenceManagerFrame(Frame):
             if result.get("success"):
                 self.result_label.config(text=f"✅ Travail ajouté. Nouvelle dette : {result.get('new_debt'):.2f} $")
                 self.refresh_debt_display()
-                csv_logger.log(agency, "work", item_name, result.get("debited"), word_count=word_count, tariff_type=tariff_type)
+                csv_logger.log(agency=agency,
+                               item_name=item_name,
+                               weighted_words=word_count,
+                               tariff_type=tariff_type)
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except ValueError:
@@ -246,6 +260,31 @@ class LicenceManagerFrame(Frame):
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
             self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
+
+    def download_transactions(self):
+
+        headers = {
+            "Authorization": f"Bearer {SECRET}"
+        }
+
+        try:
+            response = requests.get(API_URL_DOWNLOAD, headers=headers)
+        except Exception as e:
+            print("Erreur lors de la connexion à l'API :", e)
+            return
+
+        if response.status_code == 200:
+            # Sauvegarde du contenu dans un fichier local
+            with open("downloaded_logs.csv", "wb") as file:
+                file.write(response.content)
+            message = "Les logs ont bien été téléchargés sous le nom 'downloaded_logs.csv'."
+            print(message)
+            messagebox.showinfo(title="Gestionnaire de licences", message=message)
+        else:
+            message = f"Erreur {response.status_code} : {response.text}"
+            print(message)
+            messagebox.showerror(title="Gestionnaire de licences", message=message)
+
 
 if __name__ == "__main__":
     root = Tk()
