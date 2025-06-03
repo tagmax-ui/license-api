@@ -8,11 +8,13 @@ from logger_utils import CSVLogger
 app = Flask(__name__)
 load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
-csv_logger = CSVLogger(file="logs.csv")  # Mets ton chemin absolu si besoin
+csv_logger = CSVLogger(file="/data/logs.csv")  # Mets ton chemin absolu si besoin
 USER_KEYS_DIR = os.environ.get("USER_KEYS_DIR", "./user_keys")
+LICENSES_FILE = "/data/licenses.json"
+
 def user_file_path(username):
     return os.path.join(USER_KEYS_DIR, f"{username}.json")
-LICENSES_FILE = "licenses.json"  # Mets ton chemin absolu si besoin
+
 
 def load_licenses():
     if os.path.exists(LICENSES_FILE):
