@@ -17,5 +17,5 @@ class CSVLogger:
         with open(self.file, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
-                datetime.now().isoformat(), agency, item_name, amount, word_count, tariff, tariff_type
+                datetime.now().isoformat(), agency, order_number, raw_words, weighted_words, tariff_type, tariff, amount
             ])
