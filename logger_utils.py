@@ -5,6 +5,7 @@ import csv
 class CSVLogger:
     def __init__(self, file):
         self.file = file
+        print("allô")
         # S'assurer que le fichier existe avec en-têtes
         if not os.path.exists(self.file):
             with open(self.file, "w", newline="", encoding="utf-8") as f:
