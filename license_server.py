@@ -166,7 +166,7 @@ def download_logs():
     if auth != f"Bearer {admin_password}":
         return jsonify({"success": False, "error": "Unauthorized"}), 403
     try:
-        csv_path = "logs.csv"
+        csv_path = "/data/logs.csv"
         return send_file(
             csv_path,
             as_attachment=True,
