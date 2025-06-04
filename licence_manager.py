@@ -4,6 +4,7 @@ import requests
 from tkinter import messagebox
 from dotenv import load_dotenv
 from logger_utils import CSVLogger
+import json
 
 load_dotenv()
 
@@ -14,6 +15,7 @@ API_URL_LIST_AGENCIES = "https://license-api-h5um.onrender.com/list_agencies"
 API_URL_GET_DEBT = "https://license-api-h5um.onrender.com/get_debt"
 API_URL_DOWNLOAD = "https://license-api-h5um.onrender.com/download_logs"
 SECRET = os.getenv("ADMIN_PASSWORD")
+TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
 csv_logger = CSVLogger(file="/data/logs.csv")  # Adapt path as needed
 
 
@@ -29,10 +31,12 @@ class LicenceManagerFrame(Frame):
         self.payment_var = StringVar()
         self.new_agency_var = StringVar()
         self.weighter_tariff_var = StringVar()
+        self.valuechecker_tariff_var = StringVar()
         self.terminology_tariff_var = StringVar()
         self.pretranslation_tariff_var = StringVar()
         self.result_label = Label(self, text="Système de facturation post-payé (DETTE)", fg="red")
         self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
+        self.tariff_display_to_key = {v: k for k, v in TARIFF_TYPES.items()}
 
         # 1. Agency choice
         Label(self, text="Agence:").grid(row=1, column=0, sticky="w")
@@ -43,15 +47,17 @@ class LicenceManagerFrame(Frame):
 
         self.frame_tariffs = LabelFrame(master=self, text="Tarification")
         self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
-        Label(self.frame_tariffs, text="Tarif Pondérateur (mot):").grid(row=7, column=0, sticky="w")
-        Entry(self.frame_tariffs, textvariable=self.weighter_tariff_var, width=8).grid(row=7, column=1, sticky="w")
-        Label(self.frame_tariffs, text="Tarif Terminologie (mot):").grid(row=7, column=2, sticky="w")
-        Entry(self.frame_tariffs, textvariable=self.terminology_tariff_var, width=8).grid(row=7, column=3, sticky="w")
-        Label(self.frame_tariffs, text="Tarif Prétraduction (mot):").grid(row=7, column=4, sticky="w")
-        Entry(self.frame_tariffs, textvariable=self.pretranslation_tariff_var, width=8).grid(row=7, column=5,
-                                                                                             sticky="w")
-        Button(self.frame_tariffs, text="Enregistrer tarifs", command=self.update_tariffs).grid(row=7, column=6,
-                                                                                                padx=(10, 0))
+
+        for i, (key, label) in enumerate(TARIFF_TYPES.items()):
+            varname = f"{key}_tariff_var"
+            setattr(self, varname, StringVar())
+            Label(self.frame_tariffs, text=f"Tarif {label} (mot):").grid(row=7, column=2 * i, sticky="w")
+            Entry(self.frame_tariffs, textvariable=getattr(self, varname), width=8).grid(row=7, column=2 * i + 1,
+                                                                                         sticky="w")
+
+        Button(self.frame_tariffs, text="Enregistrer tarifs", command=self.update_tariffs).grid(
+            row=7, column=2 * len(TARIFF_TYPES), padx=(10, 0)
+        )
 
         # 2. Current Debt
         Label(self, text="Dette actuelle:").grid(row=2, column=0, sticky="w")
@@ -64,12 +70,23 @@ class LicenceManagerFrame(Frame):
         Label(self, text="Mots:").grid(row=4, column=0, sticky="w")
         Entry(self, textvariable=self.weighted_word_count_var, width=10).grid(row=4, column=1, sticky="w")
         Label(self, text="Service:").grid(row=4, column=2, sticky="w")
-        self.tariff_combobox = ttk.Combobox(self, textvariable=self.tariff_type_var,
-                                            values=["weighter", "terminology", "pretranslation"], state="readonly",
-                                            width=15)
+        self.tariff_type_var = StringVar()
+
+        self.tariff_combobox = ttk.Combobox(
+            self,
+            textvariable=self.tariff_type_var,
+            values=list(TARIFF_TYPES.values()),  # affiche seulement les labels FR
+            state="readonly",
+            width=15)
+
         self.tariff_combobox.grid(row=4, column=3, sticky="w")
         Label(self, text="Description:").grid(row=4, column=4, sticky="w")
         Entry(self, textvariable=self.item_name_var, width=15).grid(row=4, column=5, sticky="w")
+        label = self.tariff_type_var.get()
+        if not label:
+            # Prendre la première valeur par défaut
+            label = list(self.tariff_display_to_key.keys())[0]
+        tariff_key = self.tariff_display_to_key[label]
         Button(self, text="Ajouter à la dette", command=self.add_work).grid(row=4, column=6, padx=(10, 0))
 
         # 4. Register payment (reduce debt)
@@ -111,30 +128,31 @@ class LicenceManagerFrame(Frame):
             self.result_label.config(text="⚠️ Sélectionnez une agence pour modifier ses tarifs.")
             return
 
+        data = {"agency_name": agency_name}
         try:
-            weighter_tariff = float(self.weighter_tariff_var.get())
-            terminology_tariff = float(self.terminology_tariff_var.get())
-            pretranslation_tariff = float(self.pretranslation_tariff_var.get())
+            # Boucle sur tous les types de tarifs connus
+            for key in TARIFF_TYPES:
+                varname = f"{key}_tariff_var"
+                value_str = getattr(self, varname).get()
+                data[f"{key}_tariff"] = float(value_str)
         except ValueError:
             self.result_label.config(text="⚠️ Entrez des valeurs valides pour les tarifs.")
             return
 
         headers = {"Authorization": f"Bearer {SECRET}"}
-        data = {
-            "agency_name": agency_name,
-            "weighter_tariff": weighter_tariff,
-            "terminology_tariff": terminology_tariff,
-            "pretranslation_tariff": pretranslation_tariff
-        }
         try:
-            response = requests.post("https://license-api-h5um.onrender.com/update_tariffs", json=data, headers=headers)
+            response = requests.post(
+                "https://license-api-h5um.onrender.com/update_tariffs",
+                json=data,
+                headers=headers
+            )
             result = response.json()
             if result.get("success"):
                 self.result_label.config(text="✅ Tarifs mis à jour.")
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}")
 
     def refresh_debt_display(self, *_):
         agency_name = self.agency_var.get()
@@ -148,25 +166,24 @@ class LicenceManagerFrame(Frame):
             if result.get("success"):
                 debt = result.get("debt", 0)
                 self.debt_label.config(text=f"{debt:.2f} $")
-                # Nouvelle requête pour obtenir les tarifs
-                tariffs = result.get("tariffs")
-                if tariffs:
-                    self.weighter_tariff_var.set(tariffs.get("weighter_tariff", ""))
-                    self.terminology_tariff_var.set(tariffs.get("terminology_tariff", ""))
-                    self.pretranslation_tariff_var.set(tariffs.get("pretranslation_tariff", ""))
+                tariffs = result.get("tariffs", {})
+                # DRY : boucle sur tous les types de tarif connus
+                for key in TARIFF_TYPES:
+                    varname = f"{key}_tariff_var"
+                    getattr(self, varname).set(tariffs.get(f"{key}_tariff", ""))
                 self.result_label.config(text="")
             else:
                 self.debt_label.config(text="Erreur")
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
             self.debt_label.config(text="Erreur")
-            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}")
 
     def add_work(self):
         try:
             agency = self.agency_var.get()
             word_count = int(self.weighted_word_count_var.get())
-            tariff_type = self.tariff_type_var.get()
+            tariff_type = self.tariff_display_to_key[self.tariff_type_var.get()]
             item_name = self.item_name_var.get()
             if not agency or word_count <= 0 or not tariff_type:
                 self.result_label.config(text="⚠️ Remplir tous les champs travail.")
@@ -221,13 +238,12 @@ class LicenceManagerFrame(Frame):
             self.result_label.config(text="⚠️ Entrez un nom d’agence.")
             return
         headers = {"Authorization": f"Bearer {SECRET}"}
-        # Default tariffs; adapt as needed or prompt the user
-        data = {
-            "agency_name": agency_name,
-            "weighter_tariff": 0.019,
-            "terminology_tariff": 0.025,
-            "pretranslation_tariff": 0.012
-        }
+
+        # DRY : on met tous les tarifs à 1
+        data = {"agency_name": agency_name}
+        for key in TARIFF_TYPES:
+            data[f"{key}_tariff"] = 1
+
         try:
             response = requests.post(API_URL_ADD_AGENCY, json=data, headers=headers)
             result = response.json()
@@ -238,7 +254,7 @@ class LicenceManagerFrame(Frame):
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}")
 
     def delete_agency(self):
         agency_name = self.agency_var.get()

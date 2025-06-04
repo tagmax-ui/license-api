@@ -10,7 +10,13 @@ load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
 csv_logger = CSVLogger(file="/data/logs.csv")  # Mets ton chemin absolu si besoin
 USER_KEYS_DIR = os.environ.get("USER_KEYS_DIR", "./user_keys")
+TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
 LICENSES_FILE = "/data/licenses.json"
+
+@app.route("/get_tariff_types", methods=["GET"])
+def get_tariff_types():
+    # TARIFF_TYPES est déjà chargé depuis l'env au démarrage du serveur
+    return jsonify(TARIFF_TYPES)
 
 def user_file_path(username):
     return os.path.join(USER_KEYS_DIR, f"{username}.json")
@@ -32,6 +38,11 @@ licenses = load_licenses()
 def home():
     return "🎉 Bienvenue sur l’API de facturation/dette. Tout fonctionne!"
 
+import os
+import json
+
+TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))
+
 @app.route("/add_agency", methods=["POST"])
 def add_agency():
     auth = request.headers.get("Authorization")
@@ -39,15 +50,11 @@ def add_agency():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
-    print("==> DONNÉES REÇUES:", data)
+
     if not data:
         return jsonify({"success": False, "error": "Invalid or empty JSON"}), 400
 
     agency_name = data.get("agency_name")
-    weighter_tariff = data.get("weighter_tariff", 0.019)
-    terminology_tariff = data.get("terminology_tariff", 0.025)
-    pretranslation_tariff = data.get("pretranslation_tariff", 0.012)
-
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency_name"}), 400
 
@@ -55,17 +62,16 @@ def add_agency():
         return jsonify({"success": False, "error": "Agency already exists"}), 409
 
     try:
-        licenses[agency_name] = {
-            "debt": 0,
-            "weighter_tariff": float(weighter_tariff),
-            "terminology_tariff": float(terminology_tariff),
-            "pretranslation_tariff": float(pretranslation_tariff)
-        }
+        agency_entry = {"debt": 0}
+        for key in TARIFF_TYPES:
+            agency_entry[f"{key}_tariff"] = float(data.get(f"{key}_tariff", 0))
+        licenses[agency_name] = agency_entry
     except Exception as e:
         return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
 
     save_licenses()
     return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
+
 
 @app.route("/charge", methods=["POST"])
 def charge():
@@ -81,10 +87,11 @@ def charge():
     data = request.get_json()
     raw_word_count = data.get("raw_word_count", 0)
     weighted_word_count = data.get("weighted_word_count", 0)
-    tariff_type = data.get("tariff_type")  # "weighter", "terminology", "pretranslation"
+    tariff_type = data.get("tariff_type")
     order_number = data.get("order_number", "")
 
-    valid_tariffs = {"weighter", "terminology", "pretranslation"}
+    # DRY: Valider selon TARIFF_TYPES
+    valid_tariffs = set(TARIFF_TYPES.keys())
     if tariff_type not in valid_tariffs:
         return jsonify({"success": False, "error": "Invalid tariff type"}), 400
 
@@ -93,17 +100,22 @@ def charge():
     if tariff is None:
         return jsonify({"success": False, "error": f"No tariff set for type {tariff_type}"}), 400
 
-    amount = round(weighted_word_count * tariff, 2)
+    if tariff_type in ["valuechecker"]:
+        amount = round(raw_word_count * tariff, 2)
+    else:
+        amount = round(weighted_word_count * tariff, 2)
     agency_info["debt"] = agency_info.get("debt", 0) + amount
     save_licenses()
 
-    csv_logger.log(agency=agency_name,
-                   order_number=order_number,
-                   raw_words=raw_word_count,
-                   weighted_words=weighted_word_count,
-                   tariff_type=tariff_type,
-                   tariff=tariff,
-                   amount=amount)
+    csv_logger.log(
+        agency=agency_name,
+        order_number=order_number,
+        raw_words=raw_word_count,
+        weighted_words=weighted_word_count,
+        tariff_type=tariff_type,
+        tariff=tariff,
+        amount=amount
+    )
 
     return jsonify({
         "success": True,
@@ -140,21 +152,19 @@ def get_debt():
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
-    client = auth.split("Bearer ")[1].strip()   # <-- MANQUAIT DANS TON CODE
+    client = auth.split("Bearer ")[1].strip()
 
     agency_info = licenses.get(client)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
     debt = agency_info.get("debt", 0)
-    return jsonify({
-        "success": True,
-        "debt": debt,
-        "tariffs": {
-            "weighter_tariff": agency_info.get("weighter_tariff", ""),
-            "terminology_tariff": agency_info.get("terminology_tariff", ""),
-            "pretranslation_tariff": agency_info.get("pretranslation_tariff", ""),
-        }
-    })
+
+    # DRY: retourner tous les tarifs connus côté config/env
+    tariffs = {
+        f"{key}_tariff": agency_info.get(f"{key}_tariff", "")
+        for key in TARIFF_TYPES}
+
+    return jsonify({"success": True, "debt": debt, "tariffs": tariffs})
 
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
@@ -214,11 +224,8 @@ def update_tariffs():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
-    print("DATA:", data)  # <-- pour voir ce qui arrive
+    print("DATA:", data)
     agency_name = data.get("agency_name")
-    weighter_tariff = data.get("weighter_tariff")
-    terminology_tariff = data.get("terminology_tariff")
-    pretranslation_tariff = data.get("pretranslation_tariff")
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency name"}), 400
 
@@ -227,12 +234,9 @@ def update_tariffs():
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
     try:
-        if weighter_tariff is not None:
-            agency_info["weighter_tariff"] = float(weighter_tariff)
-        if terminology_tariff is not None:
-            agency_info["terminology_tariff"] = float(terminology_tariff)
-        if pretranslation_tariff is not None:
-            agency_info["pretranslation_tariff"] = float(pretranslation_tariff)
+        for key in TARIFF_TYPES:
+            if f"{key}_tariff" in data and data[f"{key}_tariff"] is not None:
+                agency_info[f"{key}_tariff"] = float(data[f"{key}_tariff"])
     except Exception as e:
         return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
 
