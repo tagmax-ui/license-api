@@ -13,7 +13,7 @@ USER_KEYS_DIR = os.environ.get("USER_KEYS_DIR", "./user_keys")
 TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
 LICENSES_FILE = "/data/licenses.json"
 
-from jargonnaire_manager import jargonnaire_blueprint
+from jargonnaire_routes import jargonnaire_blueprint
 app.register_blueprint(jargonnaire_blueprint)
 
 @app.route("/get_tariff_types", methods=["GET"])
