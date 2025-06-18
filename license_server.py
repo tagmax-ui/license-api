@@ -13,8 +13,7 @@ USER_KEYS_DIR = os.environ.get("USER_KEYS_DIR", "./user_keys")
 TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
 LICENSES_FILE = "/data/licenses.json"
 
-from jargonnaire_routes import jargonnaire_blueprint
-app.register_blueprint(jargonnaire_blueprint)
+
 
 @app.route("/get_tariff_types", methods=["GET"])
 def get_tariff_types():
@@ -281,6 +280,9 @@ def get_user():
     if user_data.get("mot_de_passe") != password:
         return jsonify({"success": False, "error": "Bad password"})
     return jsonify({"success": True, "user": user_data})
+
+from jargonnaire_routes import jargonnaire_blueprint
+app.register_blueprint(jargonnaire_blueprint)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

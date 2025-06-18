@@ -71,3 +71,34 @@ def set_entry(entry_name):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     return jsonify(success=True, message=f"Entry '{entry_name}' saved."), 200
+
+
+@jargonnaire_blueprint.route('/jargonnaire/entries', methods=['GET'])
+def list_entries():
+    """Retourne la liste de toutes les clés dans symcom20250531.json."""
+    path = os.path.join(DICT_DIR, f'{g.agency}.json')
+    if not os.path.exists(path):
+        return jsonify(success=True, entries=[])
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
+    return jsonify(success=True, entries=list(data.keys()))
+
+
+@jargonnaire_blueprint.before_app_request
+def verify_agency_token():
+    auth = request.headers.get('Authorization','')
+    if not auth.startswith('Bearer '):
+        return jsonify(success=False, error='Missing or invalid token'), 403
+
+    agency = auth.split('Bearer ')[1].strip()
+    if agency not in licenses:
+        return jsonify(success=False, error='Unknown agency'), 403
+
+    # Créer automatiquement le JSON vide s’il n’existe pas
+    path = os.path.join(DICT_DIR, f'{agency}.json')
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({}, f)
+
+    g.agency = agency
