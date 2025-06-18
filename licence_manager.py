@@ -170,7 +170,11 @@ class LicenceManagerFrame(Frame):
                 # DRY : boucle sur tous les types de tarif connus
                 for key in TARIFF_TYPES:
                     varname = f"{key}_tariff_var"
-                    getattr(self, varname).set(tariffs.get(f"{key}_tariff", ""))
+                    value = tariffs.get(f"{key}_tariff", "")
+                    if isinstance(value, float) or isinstance(value, int):
+                        # Par exemple, 5 décimales max (ou ce que tu veux)
+                        value = f"{value:.5f}".rstrip('0').rstrip('.') if '.' in f"{value:.5f}" else str(value)
+                    getattr(self, varname).set(value)
                 self.result_label.config(text="")
             else:
                 self.debt_label.config(text="Erreur")
