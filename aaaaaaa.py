@@ -7,10 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # URL de votre endpoint
-API_URL_LIST_AGENCIES = os.getenv(
-    "API_URL_LIST_AGENCIES",
-    "https://license-api-h5um.onrender.com/list_agencies"
-)
+API_URL_LIST_AGENCIES = os.getenv("API_URL_LIST_AGENCIES", "https://license-api-h5um.onrender.com/list_agencies")
 
 def main():
     try:

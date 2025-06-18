@@ -1,14 +1,10 @@
-# jargonnaire_routes.py
-
 import os
-import json
-from flask import Blueprint, request, jsonify, g, current_app
-import xml.etree.ElementTree as ET
 import shutil
+import xml.etree.ElementTree as ET
+from flask import Blueprint, request, jsonify, g, current_app
 
 jargonnaire_blueprint = Blueprint('jargonnaire', __name__)
 
-# Répertoire persistant pour stocker les dicts par agence
 DATA_DIR = os.getenv('DATA_DIR', '/data')
 DICT_DIR = os.path.join(DATA_DIR, 'dictionaries')
 os.makedirs(DICT_DIR, exist_ok=True)
@@ -33,45 +29,51 @@ def verify_agency_token_and_init_dict():
     g.agency = agency
 
 
-@jargonnaire_blueprint.route('/jargonnaire/entry/<entry_name>', methods=['GET'])
-def get_entry(entry_name):
+@jargonnaire_blueprint.route(
+    '/jargonnaire/entry/<entry_name>',
+    methods=['GET', 'POST']
+)
+def entry(entry_name):
     xml_path = os.path.join(DICT_DIR, f'{g.agency}.xml')
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
-    # On cherche <entry name="entry_name">
-    elem = root.find(f".//entry[@name='{entry_name}']")
-    if elem is None:
-        return jsonify(success=False, error='Entry not found'), 404
+    if request.method == 'GET':
+        elem = root.find(f".//entry[@name='{entry_name}']")
+        if elem is None:
+            return jsonify(success=False, error='Entry not found'), 404
 
-    # On transforme l’élément XML en dict Python
-    result = {k: v for k, v in elem.attrib.items() if k != 'name'}
-    # Si tu as des sous-éléments, par ex. <translation_option>
-    options = []
-    for opt in elem.findall('translation_option'):
-        options.append(opt.attrib)
-    if options:
-        result['translation_options'] = options
+        result = {k: v for k, v in elem.attrib.items() if k != 'name'}
+        options = [opt.attrib for opt in elem.findall('translation_option')]
+        if options:
+            result['translation_options'] = options
+        return jsonify(success=True, entry=result)
 
-    return jsonify(success=True, entry=result)
-
-
-@jargonnaire_blueprint.route('/jargonnaire/entry/<entry_name>', methods=['POST'])
-def set_entry(entry_name):
-    """Crée ou met à jour une seule entrée."""
+    # POST
     payload = request.get_json()
     if not isinstance(payload, dict):
         return jsonify(success=False, error='Invalid JSON body'), 400
 
-    path = os.path.join(DICT_DIR, f'{g.agency}.json')
-    with open(path, encoding='utf-8') as f:
-        data = json.load(f)
+    elem = root.find(f".//entry[@name='{entry_name}']")
+    if elem is None:
+        elem = ET.SubElement(root, 'entry', name=entry_name)
 
-    data[entry_name] = payload
+    # Reset attributes except 'name'
+    for attr in list(elem.attrib):
+        if attr != 'name':
+            del elem.attrib[attr]
+    # Set new attributes
+    for k, v in payload.items():
+        if k != 'translation_options':
+            elem.set(k, str(v))
 
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    # Replace translation_option elements
+    for old in elem.findall('translation_option'):
+        elem.remove(old)
+    for opt in payload.get('translation_options', []):
+        ET.SubElement(elem, 'translation_option', **opt)
 
+    tree.write(xml_path, encoding='utf-8', xml_declaration=True)
     return jsonify(success=True, message=f"Entry '{entry_name}' saved."), 200
 
 
@@ -82,39 +84,3 @@ def list_entries():
     root = tree.getroot()
     names = [e.get('name') for e in root.findall('entry') if e.get('name')]
     return jsonify(success=True, entries=names), 200
-
-
-@jargonnaire_blueprint.route('/jargonnaire/entry/<entry_name>', methods=['POST'])
-def set_entry(entry_name):
-    payload = request.get_json()
-    if not isinstance(payload, dict):
-        return jsonify(success=False, error='Invalid JSON body'), 400
-
-    xml_path = os.path.join(DICT_DIR, f'{g.agency}.xml')
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    # Cherche ou crée l’élément <entry>
-    elem = root.find(f".//entry[@name='{entry_name}']")
-    if elem is None:
-        elem = ET.SubElement(root, 'entry', name=entry_name)
-
-    # Réinitialise ses attributs (sauf 'name')
-    for k in list(elem.attrib):
-        if k != 'name':
-            del elem.attrib[k]
-    # Puis on les (re)met selon le payload
-    for k, v in payload.items():
-        if k != 'translation_options':
-            elem.set(k, str(v))
-
-    # Gère les translation_options si présentes
-    # (on les supprime toutes d’abord pour remplacer)
-    for old in elem.findall('translation_option'):
-        elem.remove(old)
-    for opt in payload.get('translation_options', []):
-        ET.SubElement(elem, 'translation_option', **opt)
-
-    # Sauve le XML
-    tree.write(xml_path, encoding='utf-8', xml_declaration=True)
-    return jsonify(success=True, message=f"Entry '{entry_name}' saved."), 200
