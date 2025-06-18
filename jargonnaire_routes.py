@@ -3,7 +3,8 @@
 import os
 import json
 from flask import Blueprint, request, jsonify, g
-from app import licenses  # votre dict global des agences, initialisé dans app.py
+from license_server import licenses
+
 
 jargonnaire_blueprint = Blueprint('jargonnaire', __name__)
 
