@@ -1,21 +1,37 @@
+#!/usr/bin/env python3
+import os
 import requests
+from dotenv import load_dotenv
 
-url = "https://license-api-h5um.onrender.com/jargonnaire/entry/MonEntree"
-headers = {
-    "Authorization": "Bearer symcom20250531",
-    "Content-Type": "application/json"
-}
-payload = {
-    "explanations": "Voici mes explications.",
-    "notes":       "Et mes notes internes."
-}
+# Charge .env si besoin
+load_dotenv()
 
-# 1) POST
-r = requests.post(url, headers=headers, json=payload)
-print("POST", r.status_code)
-print("BODY:", repr(r.text))
+# URL de votre endpoint
+API_URL_LIST_AGENCIES = os.getenv(
+    "API_URL_LIST_AGENCIES",
+    "https://license-api-h5um.onrender.com/list_agencies"
+)
 
-# 2) GET
-r = requests.get(url, headers={"Authorization":"Bearer symcom20250531"})
-print("GET", r.status_code)
-print("BODY:", repr(r.text))
+def main():
+    try:
+        resp = requests.get(API_URL_LIST_AGENCIES)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        print(f"❌ Erreur HTTP : {e}")
+        return
+
+    try:
+        tokens = resp.json()
+    except ValueError:
+        print("❌ La réponse n'est pas du JSON valide :", resp.text)
+        return
+
+    if not tokens:
+        print("⚠️  Aucune agence trouvée.")
+    else:
+        print("Tokens (noms d'agences) :")
+        for t in tokens:
+            print(f" - {t}")
+
+if __name__ == "__main__":
+    main()
