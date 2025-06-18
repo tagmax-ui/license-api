@@ -85,7 +85,7 @@ def list_entries():
     return jsonify(success=True, entries=list(data.keys()))
 
 
-@jargonnaire_blueprint.before_app_request
+@jargonnaire_blueprint.before_request
 def verify_agency_token():
     auth = request.headers.get('Authorization','')
     if not auth.startswith('Bearer '):
