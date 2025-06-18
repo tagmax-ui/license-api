@@ -2,9 +2,7 @@
 
 import os
 import json
-from flask import Blueprint, request, jsonify, g
-from flask import current_app
-
+from flask import Blueprint, request, jsonify, g, current_app
 
 jargonnaire_blueprint = Blueprint('jargonnaire', __name__)
 
@@ -14,29 +12,34 @@ DICT_DIR = os.path.join(DATA_DIR, 'dictionaries')
 os.makedirs(DICT_DIR, exist_ok=True)
 
 
-@jargonnaire_blueprint.before_app_request
-def verify_agency_token():
-    """Vérifie la présence et la validité de Authorization: Bearer <agency_name>."""
+@jargonnaire_blueprint.before_request
+def verify_agency_token_and_init_dict():
+    """
+    1) Vérifie Authorization: Bearer <agency> pour TOUTES les routes du blueprint
+    2) Crée /data/dictionaries/<agency>.json vide si besoin
+    """
     auth = request.headers.get('Authorization', '')
     if not auth.startswith('Bearer '):
         return jsonify(success=False, error='Missing or invalid token'), 403
+
     agency = auth.split('Bearer ')[1].strip()
     licenses = current_app.licenses
     if agency not in licenses:
         return jsonify(success=False, error='Unknown agency'), 403
+
+    # initialise le JSON vide si nécessaire
+    path = os.path.join(DICT_DIR, f'{agency}.json')
+    if not os.path.exists(path):
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({}, f)
+
     g.agency = agency
 
 
 @jargonnaire_blueprint.route('/jargonnaire/entry/<entry_name>', methods=['GET'])
 def get_entry(entry_name):
-    """
-    GET /jargonnaire/entry/foo
-    → renvoie { success: True, entry: { … } } ou erreur 404 si absent.
-    """
+    """Récupère une seule entrée du dictionnaire."""
     path = os.path.join(DICT_DIR, f'{g.agency}.json')
-    if not os.path.exists(path):
-        return jsonify(success=False, error='Dictionary not found'), 404
-
     with open(path, encoding='utf-8') as f:
         data = json.load(f)
 
@@ -49,22 +52,14 @@ def get_entry(entry_name):
 
 @jargonnaire_blueprint.route('/jargonnaire/entry/<entry_name>', methods=['POST'])
 def set_entry(entry_name):
-    """
-    POST /jargonnaire/entry/foo
-    Body JSON → crée ou met à jour l’entrée “foo”.
-    Retourne { success: True, message: … }.
-    """
+    """Crée ou met à jour une seule entrée."""
     payload = request.get_json()
     if not isinstance(payload, dict):
         return jsonify(success=False, error='Invalid JSON body'), 400
 
     path = os.path.join(DICT_DIR, f'{g.agency}.json')
-    # Charge l’existant ou initialise un nouveau dict
-    if os.path.exists(path):
-        with open(path, encoding='utf-8') as f:
-            data = json.load(f)
-    else:
-        data = {}
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
 
     data[entry_name] = payload
 
@@ -76,31 +71,8 @@ def set_entry(entry_name):
 
 @jargonnaire_blueprint.route('/jargonnaire/entries', methods=['GET'])
 def list_entries():
-    """Retourne la liste de toutes les clés dans symcom20250531.json."""
+    """Liste toutes les clés du dictionnaire de l’agence."""
     path = os.path.join(DICT_DIR, f'{g.agency}.json')
-    if not os.path.exists(path):
-        return jsonify(success=True, entries=[])
     with open(path, encoding='utf-8') as f:
         data = json.load(f)
-    return jsonify(success=True, entries=list(data.keys()))
-
-
-@jargonnaire_blueprint.before_request
-def verify_agency_token():
-    auth = request.headers.get('Authorization','')
-    if not auth.startswith('Bearer '):
-        return jsonify(success=False, error='Missing or invalid token'), 403
-
-    agency = auth.split('Bearer ')[1].strip()
-    licenses = current_app.licenses
-    if agency not in licenses:
-        return jsonify(success=False, error='Unknown agency'), 403
-
-    # Créer automatiquement le JSON vide s’il n’existe pas
-    path = os.path.join(DICT_DIR, f'{agency}.json')
-    if not os.path.exists(path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump({}, f)
-
-    g.agency = agency
+    return jsonify(success=True, entries=list(data.keys())), 200
