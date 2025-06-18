@@ -35,6 +35,7 @@ def save_licenses():
         json.dump(licenses, f, indent=2, ensure_ascii=False)
 
 licenses = load_licenses()
+app.licenses = licenses
 
 @app.route("/")
 def home():

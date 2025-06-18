@@ -3,7 +3,7 @@
 import os
 import json
 from flask import Blueprint, request, jsonify, g
-from license_server import licenses
+from flask import current_app
 
 
 jargonnaire_blueprint = Blueprint('jargonnaire', __name__)
@@ -21,6 +21,7 @@ def verify_agency_token():
     if not auth.startswith('Bearer '):
         return jsonify(success=False, error='Missing or invalid token'), 403
     agency = auth.split('Bearer ')[1].strip()
+    licenses = current_app.licenses
     if agency not in licenses:
         return jsonify(success=False, error='Unknown agency'), 403
     g.agency = agency
@@ -91,6 +92,7 @@ def verify_agency_token():
         return jsonify(success=False, error='Missing or invalid token'), 403
 
     agency = auth.split('Bearer ')[1].strip()
+    licenses = current_app.licenses
     if agency not in licenses:
         return jsonify(success=False, error='Unknown agency'), 403
 
