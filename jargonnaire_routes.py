@@ -10,6 +10,8 @@ HERE = os.path.dirname(__file__)
 TEMPLATE_XML = os.path.join(HERE, 'data', 'default_jargonnaire_dictionary.xml')
 DATA_DIR = os.getenv('DATA_DIR', '/data')
 DICT_DIR = os.path.join(DATA_DIR, 'dictionaries')
+print("=== JE SUIS LE BON FICHIER : jargonnaire_routes.py ===")
+print(">>>> INIT DE JARGONNAIRE_ROUTES !!!!!!!")
 print("=== DÉMARRAGE FLASK ===")
 print("DATA_DIR =", DATA_DIR)
 print("DICT_DIR =", DICT_DIR)
@@ -65,6 +67,7 @@ def verify_agency_token_and_init_dict():
     methods=['GET', 'POST']
 )
 def entry(entry_name):
+    print("--- [entry] ROUTE ATTEINTE AVEC entry_name =", entry_name)
     xml_path = os.path.join(DICT_DIR, f'{g.agency}.xml')
     print(f"--- [entry] Accès fichier: {xml_path}")
     try:

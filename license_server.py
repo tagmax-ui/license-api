@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 from logger_utils import CSVLogger
 
-
+print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
 load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
