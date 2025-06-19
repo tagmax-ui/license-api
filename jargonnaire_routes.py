@@ -159,3 +159,18 @@ def debug_list_data():
             error=str(e),
             traceback=traceback.format_exc()
         ), 500
+
+
+@jargonnaire_blueprint.route('/export/xml', methods=['GET'])
+def export_xml():
+    xml_path = os.path.join(DICT_DIR, f'{g.agency}.xml')
+    try:
+        with open(xml_path, 'rb') as f:
+            xml_content = f.read()
+        return current_app.response_class(
+            response=xml_content,
+            status=200,
+            mimetype='text/xml'
+        )
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
