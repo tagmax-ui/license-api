@@ -88,22 +88,6 @@ def list_entries():
 
 
 
-@jargonnaire_blueprint.route(
-    '/jargonnaire/debug/list_data', methods=['GET'])
-def debug_list_data():
-    """
-    Retourne l'arborescence des dossiers et fichiers sous /data
-    (protégé par le même Bearer token).
-    """
-    tree = {}
-    for root, dirs, files in os.walk(DATA_DIR):
-        rel = os.path.relpath(root, DATA_DIR)
-        tree[rel] = {
-            'dirs': sorted(dirs),
-            'files': sorted(files)
-        }
-    return jsonify(success=True, tree=tree), 200
-
 
 @jargonnaire_blueprint.route('/jargonnaire/debug/list_data', methods=['GET'])
 def debug_list_data():
