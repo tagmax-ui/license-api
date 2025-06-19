@@ -97,10 +97,9 @@ def debug_list_data():
             rel = os.path.relpath(root, DATA_DIR)
             tree[rel] = {'dirs': sorted(dirs), 'files': sorted(files)}
         return jsonify(success=True, tree=tree), 200
-
     except Exception as e:
-        # capture la stack
-        tb = traceback.format_exc()
-        return jsonify(success=False,
-                       error=str(e),
-                       traceback=tb), 500
+        return jsonify(
+            success=False,
+            error=str(e),
+            traceback=traceback.format_exc()
+        ), 500
