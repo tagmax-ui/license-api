@@ -63,9 +63,8 @@ def verify_agency_token_and_init_dict():
     print("====> [before_request] FINISHED pour", agency)
 
 @jargonnaire_blueprint.route(
-    '/jargonnaire/entry/<entry_name>',
-    methods=['GET', 'POST']
-)
+    '/entry/<entry_name>',
+    methods=['GET', 'POST'])
 def entry(entry_name):
     print("--- [entry] ROUTE ATTEINTE AVEC entry_name =", entry_name)
     xml_path = os.path.join(DICT_DIR, f'{g.agency}.xml')
@@ -129,7 +128,7 @@ def entry(entry_name):
 
     return jsonify(success=True, message=f"Entry '{entry_name}' saved."), 200
 
-@jargonnaire_blueprint.route('/jargonnaire/entries', methods=['GET'])
+@jargonnaire_blueprint.route('/entries', methods=['GET'])
 def list_entries():
     xml_path = os.path.join(DICT_DIR, f'{g.agency}.xml')
     print(f"[list_entries] Ouverture: {xml_path}")
@@ -143,7 +142,7 @@ def list_entries():
         print(f"[list_entries] ERREUR: {repr(e)}")
         return jsonify(success=False, error=f"XML read error: {e}"), 500
 
-@jargonnaire_blueprint.route('/jargonnaire/debug/list_data', methods=['GET'])
+@jargonnaire_blueprint.route('/debug/list_data', methods=['GET'])
 def debug_list_data():
     print("[debug_list_data] Lancement du listing DATA_DIR")
     try:
