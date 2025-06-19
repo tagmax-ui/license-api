@@ -283,7 +283,7 @@ def get_user():
     return jsonify({"success": True, "user": user_data})
 
 from jargonnaire_routes import jargonnaire_blueprint
-app.register_blueprint(jargonnaire_blueprint)
+app.register_blueprint(jargonnaire_blueprint, url_prefix='/jargonnaire')
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
