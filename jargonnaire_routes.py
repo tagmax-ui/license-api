@@ -28,13 +28,17 @@ def verify_agency_token_and_init_dict():
     xml_path = os.path.join(DICT_DIR, f'{agency}.xml')
     default_path = os.path.join(DICT_DIR, 'default_jargonnaire_dictionary.xml')
 
-    # Si le fichier par défaut n'existe pas dans /data/dictionaries, on le copie depuis ton code source
+    # Si le fichier par défaut n'existe pas dans /data/dictionaries, on le copie depuis le code source
     if not os.path.exists(default_path):
         shutil.copyfile(TEMPLATE_XML, default_path)
+        print(f"DEBUG: Copié modèle depuis {TEMPLATE_XML} vers {default_path}")
+        print(f"DEBUG: Contenu DICT_DIR après copie modèle:", os.listdir(DICT_DIR))
 
     # Ensuite, copie pour l'agence si besoin
     if not os.path.exists(xml_path):
         shutil.copyfile(default_path, xml_path)
+        print(f"DEBUG: Copié modèle agence vers {xml_path}")
+        print(f"DEBUG: Contenu DICT_DIR après copie agence:", os.listdir(DICT_DIR))
 
     g.agency = agency
 
