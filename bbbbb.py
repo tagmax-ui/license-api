@@ -29,6 +29,22 @@ def fetch_entry(name):
         return None
     return payload.get("entry", {})
 
+@jargonnaire_blueprint.route('/jargonnaire/debug/list_data', methods=['GET'])
+def debug_list_data():
+    try:
+        tree = {}
+        for root, dirs, files in os.walk(DATA_DIR):
+            rel = os.path.relpath(root, DATA_DIR)
+            tree[rel] = {'dirs': sorted(dirs), 'files': sorted(files)}
+        return jsonify(success=True, tree=tree), 200
+
+    except Exception as e:
+        # capture la stack
+        tb = traceback.format_exc()
+        return jsonify(success=False,
+                       error=str(e),
+                       traceback=tb), 500
+
 def main():
     # 1) Récupère la liste des noms d'entrées
     entries = fetch_entries_list()
