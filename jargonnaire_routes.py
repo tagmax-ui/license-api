@@ -30,6 +30,7 @@ def verify_agency_token_and_init_dict():
 
     # Si le fichier par défaut n'existe pas dans /data/dictionaries, on le copie depuis le code source
     if not os.path.exists(default_path):
+        print("DEBUG: TEMPLATE_XML existe ?", os.path.exists(TEMPLATE_XML), TEMPLATE_XML)
         shutil.copyfile(TEMPLATE_XML, default_path)
         print(f"DEBUG: Copié modèle depuis {TEMPLATE_XML} vers {default_path}")
         print(f"DEBUG: Contenu DICT_DIR après copie modèle:", os.listdir(DICT_DIR))
