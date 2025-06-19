@@ -285,6 +285,11 @@ def get_user():
 from jargonnaire_routes import jargonnaire_blueprint
 app.register_blueprint(jargonnaire_blueprint, url_prefix='/jargonnaire')
 
+print("\n======= ROUTES FLASK =======")
+for rule in app.url_map.iter_rules():
+    print(rule)
+print("============================\n")
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
