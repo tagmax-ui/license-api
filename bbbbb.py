@@ -2,6 +2,8 @@
 import requests
 import json
 import sys
+import os, traceback
+from flask import jsonify
 
 # ---- CONFIGURATION ----
 BASE_URL = "https://license-api-h5um.onrender.com/"   # ← adapte ici l'URL de ton API

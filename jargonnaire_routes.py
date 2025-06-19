@@ -2,6 +2,7 @@ import os
 import shutil
 import xml.etree.ElementTree as ET
 from flask import Blueprint, request, jsonify, g, current_app
+import traceback
 
 jargonnaire_blueprint = Blueprint('jargonnaire', __name__)
 
@@ -102,3 +103,20 @@ def debug_list_data():
             'files': sorted(files)
         }
     return jsonify(success=True, tree=tree), 200
+
+
+@jargonnaire_blueprint.route('/jargonnaire/debug/list_data', methods=['GET'])
+def debug_list_data():
+    try:
+        tree = {}
+        for root, dirs, files in os.walk(DATA_DIR):
+            rel = os.path.relpath(root, DATA_DIR)
+            tree[rel] = {'dirs': sorted(dirs), 'files': sorted(files)}
+        return jsonify(success=True, tree=tree), 200
+
+    except Exception as e:
+        # capture la stack
+        tb = traceback.format_exc()
+        return jsonify(success=False,
+                       error=str(e),
+                       traceback=tb), 500
