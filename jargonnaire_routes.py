@@ -6,8 +6,12 @@ import traceback
 
 jargonnaire_blueprint = Blueprint('jargonnaire', __name__)
 
+HERE = os.path.dirname(__file__)
+TEMPLATE_XML = os.path.join(HERE, 'data', 'default_jargonnaire_dictionary.xml')
 DATA_DIR = os.getenv('DATA_DIR', '/data')
 DICT_DIR = os.path.join(DATA_DIR, 'dictionaries')
+print("DATA_DIR =", DATA_DIR)
+print("DICT_DIR =", DICT_DIR)
 os.makedirs(DICT_DIR, exist_ok=True)
 
 
@@ -21,9 +25,14 @@ def verify_agency_token_and_init_dict():
     if agency not in current_app.licenses:
         return jsonify(success=False, error='Unknown agency'), 403
 
-    xml_path     = os.path.join(DICT_DIR, f'{agency}.xml')
+    xml_path = os.path.join(DICT_DIR, f'{agency}.xml')
     default_path = os.path.join(DICT_DIR, 'default_jargonnaire_dictionary.xml')
 
+    # Si le fichier par défaut n'existe pas dans /data/dictionaries, on le copie depuis ton code source
+    if not os.path.exists(default_path):
+        shutil.copyfile(TEMPLATE_XML, default_path)
+
+    # Ensuite, copie pour l'agence si besoin
     if not os.path.exists(xml_path):
         shutil.copyfile(default_path, xml_path)
 
@@ -85,8 +94,6 @@ def list_entries():
     root = tree.getroot()
     names = [e.get('name') for e in root.findall('entry') if e.get('name')]
     return jsonify(success=True, entries=names), 200
-
-
 
 
 @jargonnaire_blueprint.route('/jargonnaire/debug/list_data', methods=['GET'])
