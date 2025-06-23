@@ -248,6 +248,11 @@ def update_tariffs():
     if "greeting" in data:
         agency_info["greeting"] = data["greeting"]
 
+    # Si une liste d’objets à désactiver est envoyée, on l’enregistre
+    disabled = data.get("disabled_items", "")
+    if isinstance(disabled, str):
+        agency_info["disabled_items"] = [item.strip() for item in disabled.split(",") if item.strip()]
+
     save_licenses()
     return jsonify({"success": True, "agency_info": agency_info})
 

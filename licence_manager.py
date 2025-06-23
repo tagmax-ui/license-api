@@ -38,6 +38,7 @@ class LicenceManagerFrame(Frame):
         self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
         self.tariff_display_to_key = {v: k for k, v in TARIFF_TYPES.items()}
         self.greeting_var = StringVar()
+        self.disabled_items_var = StringVar()
 
         self.frame_agency = LabelFrame(master=self)
         self.frame_agency.grid(row=1, column=0, sticky="ew", columnspan=12)
@@ -52,6 +53,10 @@ class LicenceManagerFrame(Frame):
         Label(self.frame_agency, text="Message d’accueil :").grid(row=2, column=0, sticky="w", pady=(10, 0))
         Entry(self.frame_agency, textvariable=self.greeting_var, width=200).grid(row=2, column=1,
                                                                                  sticky="ew", pady=(10, 0))
+        Label(self.frame_agency, text="Objets à désactiver (virgules) :").grid(row=3, column=0, sticky="w",
+                                                                               pady=(10, 0))
+        Entry(self.frame_agency, textvariable=self.disabled_items_var, width=200).grid(row=3, column=1,
+                                                                                       sticky="ew", pady=(10, 0))
 
         self.frame_tariffs = LabelFrame(master=self, text="Tarification")
         self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
@@ -137,6 +142,7 @@ class LicenceManagerFrame(Frame):
 
         data = {"agency_name": agency_name}
         data["greeting"] = self.greeting_var.get()
+        data["disabled_items"] = self.disabled_items_var.get()
 
         try:
             # Boucle sur tous les types de tarifs connus
