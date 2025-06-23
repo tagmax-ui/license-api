@@ -169,7 +169,13 @@ def get_debt():
 
     greeting = agency_info.get("greeting", "")
 
-    return jsonify({"success": True, "debt": debt, "tariffs": tariffs, "greeting": greeting})
+    return jsonify({
+        "success": True,
+        "debt": debt,
+        "tariffs": tariffs,
+        "greeting": agency_info.get("greeting", ""),
+        "disabled_items": agency_info.get("disabled_items", []),
+    })
 
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
@@ -250,8 +256,7 @@ def update_tariffs():
 
     # Si une liste d’objets à désactiver est envoyée, on l’enregistre
     disabled = data.get("disabled_items", "")
-    if isinstance(disabled, str):
-        agency_info["disabled_items"] = [item.strip() for item in disabled.split(",") if item.strip()]
+    agency_info["disabled_items"] = disabled
 
     save_licenses()
     return jsonify({"success": True, "agency_info": agency_info})

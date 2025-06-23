@@ -196,6 +196,8 @@ class LicenceManagerFrame(Frame):
                 self.result_label.config(text="")
                 greeting = result.get("greeting", "")
                 self.greeting_var.set(greeting)
+                disabled_items = result.get("disabled_items", "")
+                self.disabled_items_var.set(disabled_items)
             else:
                 self.debt_label.config(text="Erreur")
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
