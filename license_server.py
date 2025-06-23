@@ -167,7 +167,9 @@ def get_debt():
         f"{key}_tariff": agency_info.get(f"{key}_tariff", "")
         for key in TARIFF_TYPES}
 
-    return jsonify({"success": True, "debt": debt, "tariffs": tariffs})
+    greeting = agency_info.get("greeting", "")
+
+    return jsonify({"success": True, "debt": debt, "tariffs": tariffs, "greeting": greeting})
 
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
@@ -243,6 +245,9 @@ def update_tariffs():
     except Exception as e:
         return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
 
+    if "greeting" in data:
+        agency_info["greeting"] = data["greeting"]
+
     save_licenses()
     return jsonify({"success": True, "agency_info": agency_info})
 
@@ -289,6 +294,10 @@ print("\n======= ROUTES FLASK =======")
 for rule in app.url_map.iter_rules():
     print(rule)
 print("============================\n")
+
+
+
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

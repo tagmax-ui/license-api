@@ -37,13 +37,21 @@ class LicenceManagerFrame(Frame):
         self.result_label = Label(self, text="Système de facturation post-payé (DETTE)", fg="red")
         self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
         self.tariff_display_to_key = {v: k for k, v in TARIFF_TYPES.items()}
+        self.greeting_var = StringVar()
+
+        self.frame_agency = LabelFrame(master=self)
+        self.frame_agency.grid(row=1, column=0, sticky="ew", columnspan=12)
 
         # 1. Agency choice
-        Label(self, text="Agence:").grid(row=1, column=0, sticky="w")
-        self.agency_combobox = ttk.Combobox(self, textvariable=self.agency_var, values=[], state="readonly")
+        Label(self.frame_agency, text="Agence:").grid(row=1, column=0, sticky="w")
+        self.agency_combobox = ttk.Combobox(self.frame_agency, textvariable=self.agency_var, values=[], state="readonly")
         self.agency_combobox.bind("<<ComboboxSelected>>", self.refresh_debt_display)
-        self.agency_combobox.grid(row=1, column=1, columnspan=2, sticky="ew")
-        Button(self, text="Rafraîchir agences", command=self.fetch_agencies).grid(row=1, column=3)
+        self.agency_combobox.grid(row=1, column=1, sticky="ew")
+        Button(self.frame_agency, text="Rafraîchir agences", command=self.fetch_agencies).grid(row=1, column=3)
+
+        Label(self.frame_agency, text="Message d’accueil :").grid(row=2, column=0, sticky="w", pady=(10, 0))
+        Entry(self.frame_agency, textvariable=self.greeting_var, width=200).grid(row=2, column=1,
+                                                                                 sticky="ew", pady=(10, 0))
 
         self.frame_tariffs = LabelFrame(master=self, text="Tarification")
         self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
@@ -55,7 +63,7 @@ class LicenceManagerFrame(Frame):
             Entry(self.frame_tariffs, textvariable=getattr(self, varname), width=8).grid(row=7, column=2 * i + 1,
                                                                                          sticky="w")
 
-        Button(self.frame_tariffs, text="Enregistrer tarifs", command=self.update_tariffs).grid(
+        Button(self.frame_tariffs, text="Enregistrer", command=self.update_tariffs).grid(
             row=7, column=2 * len(TARIFF_TYPES), padx=(10, 0)
         )
 
@@ -102,7 +110,6 @@ class LicenceManagerFrame(Frame):
         Button(self, text="Ajouter agence", command=self.create_agency).grid(row=6, column=3, pady=(20, 0))
         Button(self, text="Supprimer agence", command=self.delete_agency, fg="red").grid(row=6, column=4, pady=(20, 0))
 
-
         Button(self, text="Télécharger les transactions", command=self.download_transactions).grid(row=7, column=3, pady=(20, 0))
 
         self.grid_columnconfigure(1, weight=1)
@@ -129,6 +136,8 @@ class LicenceManagerFrame(Frame):
             return
 
         data = {"agency_name": agency_name}
+        data["greeting"] = self.greeting_var.get()
+
         try:
             # Boucle sur tous les types de tarifs connus
             for key in TARIFF_TYPES:
@@ -140,6 +149,8 @@ class LicenceManagerFrame(Frame):
             return
 
         headers = {"Authorization": f"Bearer {SECRET}"}
+        print("Le data avant l'envoi: ", data)
+
         try:
             response = requests.post(
                 "https://license-api-h5um.onrender.com/update_tariffs",
@@ -163,6 +174,7 @@ class LicenceManagerFrame(Frame):
             headers = {"Authorization": f"Bearer {agency_name}"}
             response = requests.post(API_URL_GET_DEBT, headers=headers)
             result = response.json()
+            print("result dans refresh_debt_display:", result)
             if result.get("success"):
                 debt = result.get("debt", 0)
                 self.debt_label.config(text=f"{debt:.2f} $")
@@ -176,6 +188,8 @@ class LicenceManagerFrame(Frame):
                         value = f"{value:.5f}".rstrip('0').rstrip('.') if '.' in f"{value:.5f}" else str(value)
                     getattr(self, varname).set(value)
                 self.result_label.config(text="")
+                greeting = result.get("greeting", "")
+                self.greeting_var.set(greeting)
             else:
                 self.debt_label.config(text="Erreur")
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
