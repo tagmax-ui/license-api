@@ -168,13 +168,14 @@ def get_debt():
         for key in TARIFF_TYPES}
 
     greeting = agency_info.get("greeting", "")
+    disabled_items = agency_info.get("disabled_items", "")
 
     return jsonify({
         "success": True,
         "debt": debt,
         "tariffs": tariffs,
-        "greeting": agency_info.get("greeting", ""),
-        "disabled_items": agency_info.get("disabled_items", []),
+        "greeting": greeting,
+        "disabled_items": disabled_items,
     })
 
 @app.route("/list_agencies", methods=["GET"])
