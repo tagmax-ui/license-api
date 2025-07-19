@@ -337,6 +337,13 @@ def get_agency_history():
     return jsonify({"success": True, "history": history})
 
 
+@app.route("/purge_logs_to_last", methods=["POST"])
+def purge_logs_to_last():
+
+    from logger_utils import keep_last_n_rows
+    keep_last_n_rows("/data/logs.csv", 10)
+    return jsonify({"success": True})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
