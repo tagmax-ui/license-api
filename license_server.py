@@ -327,7 +327,8 @@ def get_agency_history():
             for log_entry in log_reader:
                 if not log_entry:
                     continue
-                if "agency" in log_entry and log_entry["agency"] == agency_identifier:
+                # Remplace "Client" par le nom exact de la colonne dans ton CSV
+                if "Client" in log_entry and log_entry["Client"] == agency_identifier:
                     agency_history.append(log_entry)
     except Exception as error:
         return jsonify({"success": False, "error": f"Error reading log file: {error}"}), 500
