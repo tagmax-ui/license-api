@@ -131,7 +131,8 @@ def charge():
     return jsonify({
         "success": True,
         "debited": amount,
-        "new_debt": balance
+        "new_debt": balance,
+        "tariff": tariff
     })
 
 @app.route("/register_payment", methods=["POST"])
