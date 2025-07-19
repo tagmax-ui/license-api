@@ -328,6 +328,7 @@ class LicenceManagerFrame(Frame):
             messagebox.showerror(title="Gestionnaire de licences", message=message)
 
 
+
 if __name__ == "__main__":
     root = Tk()
     root.title("Gestion facturation et dette des agences")

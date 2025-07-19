@@ -307,7 +307,22 @@ for rule in app.url_map.iter_rules():
 print("============================\n")
 
 
+@app.route("/history", methods=["GET"])
+def get_agency_history():
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Missing or invalid token"}), 403
+    agency = auth.split("Bearer ")[1].strip()
 
+    import csv
+    logs_path = "/data/logs.csv"
+    history = []
+    with open(logs_path, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["agency"] == agency:
+                history.append(row)
+    return jsonify({"success": True, "history": history})
 
 
 if __name__ == "__main__":
