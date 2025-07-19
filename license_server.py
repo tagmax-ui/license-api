@@ -2,18 +2,41 @@ import os
 import json
 from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
-from logger_utils import CSVLogger
-import csv
+from db_logger import DBLogger
+
 
 print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
+db_logger = DBLogger()
 load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
-csv_logger = CSVLogger(file="/data/logs.csv")  # Mets ton chemin absolu si besoin
 USER_KEYS_DIR = os.environ.get("USER_KEYS_DIR", "./user_keys")
 TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
 LICENSES_FILE = "/data/licenses.json"
 
+
+@app.route("/download_logs", methods=["GET"])
+def download_logs():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    import io, csv
+    from flask import Response
+
+    logs = db_logger.all_logs()  # Ajoute cette méthode à ta classe DBLogger si besoin
+    if not logs:
+        return Response("Aucune donnée.", mimetype="text/plain")
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=logs[0].keys())
+    writer.writeheader()
+    writer.writerows(logs)
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={"Content-disposition": "attachment; filename=logs.csv"}
+    )
 
 
 @app.route("/get_tariff_types", methods=["GET"])
@@ -115,8 +138,8 @@ def charge():
     balance = agency_info["debt"]
     save_licenses()
 
-    # Log CSV
-    csv_logger.log(
+    # Log
+    db_logger.log(
         client=client,
         service=service,
         order=order,
@@ -151,7 +174,7 @@ def register_payment():
 
     agency_info["debt"] = max(agency_info.get("debt", 0) - payment, 0)
     save_licenses()
-    csv_logger.log(agency_name, "payment", "", -payment)
+    db_logger.log(agency_name, "payment", "", -payment)
 
     return jsonify({
         "success": True,
@@ -191,21 +214,7 @@ def get_debt():
 def list_agencies():
     return jsonify(list(licenses.keys()))
 
-@app.route("/download_logs", methods=["GET"])
-def download_logs():
-    auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-    try:
-        csv_path = "/data/logs.csv"
-        return send_file(
-            csv_path,
-            as_attachment=True,
-            download_name="logs.csv",
-            mimetype="text/csv"
-        )
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/download_licenses", methods=["GET"])
 def download_licenses():
@@ -330,35 +339,13 @@ def get_agency_history():
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
     agency = auth.split("Bearer ")[1].strip()
 
-    logs_path = "/data/logs.csv"
-    history = []
-    with open(logs_path, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if not row:
-                continue
-            if "client" in row and row["client"] == agency:
-                history.append(row)
-    # Nettoie avant de retourner
-    history = clean_none_values(history)
+    history = db_logger.history(agency)
     return jsonify({"success": True, "history": history})
 
 
-@app.route("/purge_logs_to_last", methods=["POST"])
-def purge_logs_to_last():
 
-    from logger_utils import keep_last_n_rows
-    keep_last_n_rows("/data/logs.csv", 10)
-    return jsonify({"success": True})
 
-@app.route("/reset_logs", methods=["POST"])
-def reset_logs():
-    auth = request.headers.get("Authorization")
-    if auth != f"Bearer {admin_password}":
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-    from logger_utils import reset_csv
-    reset_csv("/data/logs.csv")
-    return jsonify({"success": True, "message": "CSV log réinitialisé."})
+
 
 
 if __name__ == "__main__":

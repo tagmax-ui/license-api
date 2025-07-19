@@ -3,7 +3,7 @@ import os
 import requests
 from tkinter import messagebox
 from dotenv import load_dotenv
-from logger_utils import CSVLogger
+from db_logger import DBLogger
 import json
 
 load_dotenv()
@@ -16,8 +16,7 @@ API_URL_GET_DEBT = "https://license-api-h5um.onrender.com/get_debt"
 API_URL_DOWNLOAD = "https://license-api-h5um.onrender.com/download_logs"
 SECRET = os.getenv("ADMIN_PASSWORD")
 TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
-csv_logger = CSVLogger(file="/data/logs.csv")  # Adapt path as needed
-
+db_logger = DBLogger()
 
 class LicenceManagerFrame(Frame):
     def __init__(self, master=None):
@@ -226,7 +225,7 @@ class LicenceManagerFrame(Frame):
             if result.get("success"):
                 self.result_label.config(text=f"✅ Travail ajouté. Nouvelle dette : {result.get('new_debt'):.2f} $")
                 self.refresh_debt_display()
-                csv_logger.log(agency=agency,
+                db_logger.log(agency=agency,
                                item_name=item_name,
                                weighted_words=word_count,
                                tariff_type=tariff_type)
@@ -251,7 +250,7 @@ class LicenceManagerFrame(Frame):
             if result.get("success"):
                 self.result_label.config(text=f"✅ Paiement enregistré. Nouvelle dette : {result.get('new_debt'):.2f} $")
                 self.refresh_debt_display()
-                csv_logger.log(agency, "payment", "", -amount)
+                db_logger.log(agency, "payment", "", -amount)
             else:
                 self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
         except ValueError:
@@ -318,9 +317,9 @@ class LicenceManagerFrame(Frame):
 
         if response.status_code == 200:
             # Sauvegarde du contenu dans un fichier local
-            with open("downloaded_logs.csv", "wb") as file:
+            with open("transactions.csv", "wb") as file:
                 file.write(response.content)
-            message = "Les logs ont bien été téléchargés sous le nom 'downloaded_logs.csv'."
+            message = "Les transactions ont bien été téléchargées sous le nom 'transactions.csv'."
             print(message)
             messagebox.showinfo(title="Gestionnaire de licences", message=message)
         else:
