@@ -3,6 +3,7 @@ import json
 from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 from logger_utils import CSVLogger
+import csv
 
 print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
@@ -309,23 +310,29 @@ print("============================\n")
 
 @app.route("/history", methods=["GET"])
 def get_agency_history():
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    authorization_header = request.headers.get("Authorization", "")
+    if not authorization_header.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
-    agency = auth.split("Bearer ")[1].strip()
 
-    import csv
-    logs_path = "/data/logs.csv"
-    history = []
-    with open(logs_path, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if not row:
-                continue
-            print(row)
-            if "agency" in row and row["agency"] == agency:
-                history.append(row)
-    return jsonify({"success": True, "history": history})
+    agency_identifier = authorization_header.split("Bearer ")[1].strip()
+    logs_file_path = "/data/logs.csv"
+    agency_history = []
+
+    if not os.path.isfile(logs_file_path):
+        return jsonify({"success": False, "error": "Log file not found"}), 500
+
+    try:
+        with open(logs_file_path, encoding="utf-8") as logs_file:
+            log_reader = csv.DictReader(logs_file)
+            for log_entry in log_reader:
+                if not log_entry:
+                    continue
+                if "agency" in log_entry and log_entry["agency"] == agency_identifier:
+                    agency_history.append(log_entry)
+    except Exception as error:
+        return jsonify({"success": False, "error": f"Error reading log file: {error}"}), 500
+
+    return jsonify({"success": True, "history": agency_history})
 
 
 if __name__ == "__main__":
