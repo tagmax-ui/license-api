@@ -1,7 +1,8 @@
 import os
 from datetime import datetime
+from datetime import timezone
 import csv
-
+import time
 
 class CSVLogger:
     def __init__(self, file):
@@ -11,7 +12,7 @@ class CSVLogger:
             with open(self.file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    "client", "date", "service", "order", "user",
+                    "client", "timestamp", "iso_datetime", "service", "order", "user",
                     "filename", "words", "tariff", "amount", "balance"
                 ])
 
@@ -27,11 +28,14 @@ class CSVLogger:
             amount=0,
             balance=0
     ):
+        unix_timestamp = int(time.time())
+        iso_datetime = datetime.now(timezone.utc).astimezone().isoformat()
         with open(self.file, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
                 client,
-                datetime.now().isoformat(),
+                unix_timestamp,
+                iso_datetime,
                 service,
                 order,
                 user,
@@ -56,6 +60,6 @@ def reset_csv(file_path):
     with open(file_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "client", "date", "service", "order", "user",
+            "client", "timestamp", "service", "order", "user",
             "filename", "words", "tariff", "amount", "balance"
         ])
