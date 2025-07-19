@@ -116,6 +116,7 @@ class LicenceManagerFrame(Frame):
         Button(self, text="Supprimer agence", command=self.delete_agency, fg="red").grid(row=6, column=4, pady=(20, 0))
 
         Button(self, text="Télécharger les transactions", command=self.download_transactions).grid(row=7, column=3, pady=(20, 0))
+        Button(self, text="Réinitialiser logs", command=self.reset_logs, fg="red").grid(row=7, column=4, pady=(20, 0))
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
@@ -327,7 +328,29 @@ class LicenceManagerFrame(Frame):
             print(message)
             messagebox.showerror(title="Gestionnaire de licences", message=message)
 
+    def reset_logs(self):
+        # Première confirmation (soft warning)
+        if not messagebox.askyesno("Attention", "⚠️ Tu es sur le point d’effacer complètement les logs. Continuer ?"):
+            return
+        # Deuxième confirmation (vraiment sûr)
+        if not messagebox.askyesno("Confirmation ultime",
+                                   "🛑 Es-tu VRAIMENT SÛR de vouloir effacer les logs ? Cette action est irréversible."):
+            return
 
+        url = "https://license-api-h5um.onrender.com/reset_logs"
+        headers = {"Authorization": f"Bearer {SECRET}"}
+        try:
+            response = requests.post(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    messagebox.showinfo("Logs", "✅ Les logs ont été réinitialisés côté serveur.")
+                else:
+                    messagebox.showerror("Erreur", f"Erreur serveur: {data.get('error')}")
+            else:
+                messagebox.showerror("Erreur", f"HTTP {response.status_code}: {response.text}")
+        except Exception as e:
+            messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
 
 if __name__ == "__main__":
     root = Tk()
