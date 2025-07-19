@@ -320,7 +320,10 @@ def get_agency_history():
     with open(logs_path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            if row["agency"] == agency:
+            if not row:
+                continue
+            print(row)
+            if "agency" in row and row["agency"] == agency:
                 history.append(row)
     return jsonify({"success": True, "history": history})
 
