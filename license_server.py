@@ -174,7 +174,17 @@ def register_payment():
 
     agency_info["debt"] = max(agency_info.get("debt", 0) - payment, 0)
     save_licenses()
-    db_logger.log(agency_name, "payment", "", -payment)
+    db_logger.log(
+        client=agency_name,
+        service="payment",
+        order="",
+        user="",
+        filename="",
+        words=0,
+        tariff=0,
+        amount=-payment,
+        balance=agency_info["debt"]
+    )
 
     return jsonify({
         "success": True,
