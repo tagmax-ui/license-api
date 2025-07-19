@@ -83,48 +83,55 @@ def charge():
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
-    agency_name = auth.split("Bearer ")[1].strip()
-    agency_info = licenses.get(agency_name)
+    client = auth.split("Bearer ")[1].strip()
+    agency_info = licenses.get(client)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
     data = request.get_json()
-    raw_word_count = data.get("raw_word_count", 0)
-    weighted_word_count = data.get("weighted_word_count", 0)
-    tariff_type = data.get("tariff_type")
-    order_number = data.get("order_number", "")
+    service = data.get("service")
+    order = data.get("order", "")
+    user = data.get("user", "")
+    filename = data.get("filename", "")
+    words = data.get("words", 0)
+    tariff = None
 
-    # DRY: Valider selon TARIFF_TYPES
-    valid_tariffs = set(TARIFF_TYPES.keys())
-    if tariff_type not in valid_tariffs:
-        return jsonify({"success": False, "error": "Invalid tariff type"}), 400
+    # Si les noms ne sont pas là, fallback:
+    if words is None:
+        if service == "valuechecker":
+            words = data.get("raw_word_count", 0)
+        else:
+            words = data.get("weighted_word_count", 0)
 
-    tariff_key = f"{tariff_type}_tariff"
+    # Chercher le tarif depuis la config agence
+    tariff_key = f"{service}_tariff"
     tariff = agency_info.get(tariff_key)
     if tariff is None:
-        return jsonify({"success": False, "error": f"No tariff set for type {tariff_type}"}), 400
+        return jsonify({"success": False, "error": f"No tariff set for type {service}"}), 400
 
-    if tariff_type in ["valuechecker"]:
-        amount = round(raw_word_count * tariff, 2)
-    else:
-        amount = round(weighted_word_count * tariff, 2)
+    # Calcul du montant
+    amount = round(words * tariff, 2)
     agency_info["debt"] = agency_info.get("debt", 0) + amount
+    balance = agency_info["debt"]
     save_licenses()
 
+    # Log CSV
     csv_logger.log(
-        agency=agency_name,
-        order_number=order_number,
-        raw_words=raw_word_count,
-        weighted_words=weighted_word_count,
-        tariff_type=tariff_type,
+        client=client,
+        service=service,
+        order=order,
+        user=user,
+        filename=filename,
+        words=words,
         tariff=tariff,
-        amount=amount
+        amount=amount,
+        balance=balance
     )
 
     return jsonify({
         "success": True,
         "debited": amount,
-        "new_debt": agency_info["debt"]
+        "new_debt": balance
     })
 
 @app.route("/register_payment", methods=["POST"])
@@ -322,7 +329,6 @@ def get_agency_history():
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
     agency = auth.split("Bearer ")[1].strip()
 
-    import csv
     logs_path = "/data/logs.csv"
     history = []
     with open(logs_path, encoding="utf-8") as f:
@@ -330,7 +336,7 @@ def get_agency_history():
         for row in reader:
             if not row:
                 continue
-            if "Client" in row and row["Client"] == agency:
+            if "client" in row and row["client"] == agency:
                 history.append(row)
     # Nettoie avant de retourner
     history = clean_none_values(history)
@@ -343,6 +349,16 @@ def purge_logs_to_last():
     from logger_utils import keep_last_n_rows
     keep_last_n_rows("/data/logs.csv", 10)
     return jsonify({"success": True})
+
+@app.route("/reset_logs", methods=["POST"])
+def reset_logs():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    from logger_utils import reset_csv
+    reset_csv("/data/logs.csv")
+    return jsonify({"success": True, "message": "CSV log réinitialisé."})
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
