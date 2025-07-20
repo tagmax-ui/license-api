@@ -59,3 +59,12 @@ class DBLogger:
             c.execute("SELECT * FROM transactions ORDER BY timestamp DESC")
             cols = [desc[0] for desc in c.description]
             return [dict(zip(cols, row)) for row in c.fetchall()]
+
+    def delete_transactions_between(self, start_timestamp, end_timestamp):
+        with sqlite3.connect(self.db_path) as conn:
+            c = conn.cursor()
+            c.execute(
+                "DELETE FROM transactions WHERE timestamp BETWEEN ? AND ?",
+                (start_timestamp, end_timestamp)
+            )
+            conn.commit()

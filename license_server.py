@@ -353,6 +353,21 @@ def get_agency_history():
     return jsonify({"success": True, "history": history})
 
 
+@app.route("/delete_transactions", methods=["POST"])
+def delete_transactions():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    start = data.get("start_timestamp")
+    end = data.get("end_timestamp")
+
+    if start is None or end is None:
+        return jsonify({"success": False, "error": "Missing timestamps"}), 400
+
+    db_logger.delete_transactions_between(start, end)
+    return jsonify({"success": True, "message": "Transactions supprimées."})
 
 
 

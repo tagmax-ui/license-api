@@ -117,6 +117,18 @@ class LicenceManagerFrame(Frame):
         Button(self, text="Télécharger les transactions", command=self.download_transactions).grid(row=7, column=3, pady=(20, 0))
         Button(self, text="Réinitialiser logs", command=self.reset_logs, fg="red").grid(row=7, column=4, pady=(20, 0))
 
+        Label(self, text="Début (timestamp):").grid(row=8, column=0, sticky="w")
+        self.start_timestamp_var = StringVar()
+        Entry(self, textvariable=self.start_timestamp_var, width=15).grid(row=8, column=1, sticky="w")
+
+        Label(self, text="Fin (timestamp):").grid(row=8, column=2, sticky="w")
+        self.end_timestamp_var = StringVar()
+        Entry(self, textvariable=self.end_timestamp_var, width=15).grid(row=8, column=3, sticky="w")
+
+        Button(self, text="Supprimer transactions", command=lambda: self.delete_transactions_by_date(
+            int(self.start_timestamp_var.get()), int(self.end_timestamp_var.get()))
+               ).grid(row=8, column=4, pady=(10, 0))
+
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
         self.fetch_agencies()
@@ -350,6 +362,21 @@ class LicenceManagerFrame(Frame):
                 messagebox.showerror("Erreur", f"HTTP {response.status_code}: {response.text}")
         except Exception as e:
             messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
+
+    def delete_transactions_by_date(self, start_timestamp, end_timestamp):
+        headers = {"Authorization": f"Bearer {SECRET}"}
+        data = {"start_timestamp": start_timestamp, "end_timestamp": end_timestamp}
+        try:
+            response = requests.post("https://license-api-h5um.onrender.com/delete_transactions", json=data, headers=headers)
+            result = response.json()
+            if result.get("success"):
+                messagebox.showinfo("Suppression", "✅ Transactions supprimées.")
+            else:
+                messagebox.showerror("Erreur", f"Erreur: {result.get('error')}")
+        except Exception as e:
+            messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
+
+
 
 if __name__ == "__main__":
     root = Tk()
