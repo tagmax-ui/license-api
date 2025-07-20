@@ -370,7 +370,17 @@ def delete_transactions():
     return jsonify({"success": True, "message": "Transactions supprimées."})
 
 
+@app.route("/reset_logs", methods=["POST"])
+def reset_logs():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
 
+    try:
+        db_logger.reset()
+        return jsonify({"success": True, "message": "Logs réinitialisés."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
