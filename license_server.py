@@ -4,7 +4,6 @@ from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 from db_logger import DBLogger
 
-
 print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
 db_logger = DBLogger()
@@ -44,6 +43,7 @@ def get_tariff_types():
     # TARIFF_TYPES est déjà chargé depuis l'env au démarrage du serveur
     return jsonify(TARIFF_TYPES)
 
+
 def user_file_path(username):
     return os.path.join(USER_KEYS_DIR, f"{username}.json")
 
@@ -54,21 +54,26 @@ def load_licenses():
             return json.load(f)
     return {}
 
+
 def save_licenses():
     with open(LICENSES_FILE, "w", encoding="utf-8") as f:
         json.dump(licenses, f, indent=2, ensure_ascii=False)
 
+
 licenses = load_licenses()
 app.licenses = licenses
+
 
 @app.route("/")
 def home():
     return "🎉 Bienvenue sur l’API de facturation/dette. Tout fonctionne!"
 
+
 import os
 import json
 
 TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))
+
 
 @app.route("/add_agency", methods=["POST"])
 def add_agency():
@@ -114,6 +119,7 @@ def charge():
     data = request.get_json()
     service = data.get("service")
     order = data.get("order", "")
+    profile = data.get("profile", "")
     user = data.get("user", "")
     filename = data.get("filename", "")
     words = data.get("words", 0)
@@ -142,6 +148,7 @@ def charge():
         client=client,
         service=service,
         order=order,
+        profile=profile,
         user=user,
         filename=filename,
         words=words,
@@ -156,6 +163,7 @@ def charge():
         "new_debt": balance,
         "tariff": tariff
     })
+
 
 @app.route("/register_payment", methods=["POST"])
 def register_payment():
@@ -177,6 +185,7 @@ def register_payment():
         client=agency_name,
         service="payment",
         order="",
+        profile="",
         user="",
         filename="",
         words=0,
@@ -189,6 +198,7 @@ def register_payment():
         "success": True,
         "new_debt": agency_info["debt"]
     })
+
 
 @app.route("/get_debt", methods=["POST"])
 def get_debt():
@@ -220,10 +230,10 @@ def get_debt():
         "disabled_items": disabled_items,
     })
 
+
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
     return jsonify(list(licenses.keys()))
-
 
 
 @app.route("/download_licenses", methods=["GET"])
@@ -237,6 +247,7 @@ def download_licenses():
         return data, 200, {"Content-Type": "application/json"}
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/delete_agency", methods=["POST"])
 def delete_agency():
@@ -256,6 +267,7 @@ def delete_agency():
     save_licenses()
 
     return jsonify({"success": True, "message": f"Agency '{agency_name}' deleted."})
+
 
 @app.route("/update_tariffs", methods=["POST"])
 def update_tariffs():
@@ -290,6 +302,7 @@ def update_tariffs():
     save_licenses()
     return jsonify({"success": True, "agency_info": agency_info})
 
+
 @app.route("/register_user", methods=["POST"])
 def register_user():
     data = request.json
@@ -313,6 +326,7 @@ def register_user():
         json.dump(user_data, f, ensure_ascii=False, indent=4)
     return jsonify({"success": True, "message": "Utilisateur créé."})
 
+
 @app.route('/get_user', methods=['POST'])
 def get_user():
     username = request.json.get("username")
@@ -326,7 +340,9 @@ def get_user():
         return jsonify({"success": False, "error": "Bad password"})
     return jsonify({"success": True, "user": user_data})
 
+
 from jargonnaire_routes import jargonnaire_blueprint
+
 app.register_blueprint(jargonnaire_blueprint, url_prefix='/jargonnaire')
 
 print("\n======= ROUTES FLASK =======")
@@ -341,6 +357,7 @@ def clean_none_values(logs):
         cleaned_row = {k if k is not None else "": v if v is not None else "" for k, v in row.items()}
         cleaned.append(cleaned_row)
     return cleaned
+
 
 @app.route("/history", methods=["GET"])
 def get_agency_history():

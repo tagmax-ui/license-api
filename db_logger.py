@@ -20,6 +20,7 @@ class DBLogger:
                     timestamp INTEGER,
                     service TEXT,
                     "order" TEXT,
+                    profile TEXT,
                     user TEXT,
                     filename TEXT,
                     words INTEGER,
@@ -28,16 +29,20 @@ class DBLogger:
                     balance REAL
                 )
             """)
+            try:
+                c.execute("ALTER TABLE transactions ADD COLUMN profile TEXT")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
-    def log(self, client, service, order="", user="", filename="", words=0, tariff=0, amount=0, balance=0):
+    def log(self, client, service, order="", profile="", user="", filename="", words=0, tariff=0, amount=0, balance=0):
         timestamp = int(time.time())
         with sqlite3.connect(self.db_path) as conn:
             c = conn.cursor()
             c.execute("""
-                INSERT INTO transactions (client, timestamp, service, "order", user, filename, words, tariff, amount, balance)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (client, timestamp, service, order, user, filename, words, tariff, amount, balance))
+                INSERT INTO transactions (client, timestamp, service, "order", profile, user, filename, words, tariff, amount, balance)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (client, timestamp, service, order, profile, user, filename, words, tariff, amount, balance))
             conn.commit()
 
     def reset(self):
