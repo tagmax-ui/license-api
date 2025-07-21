@@ -91,7 +91,7 @@ def add_agency():
     try:
         agency_entry = {"debt": 0}
         for key in TARIFF_TYPES:
-            agency_entry[f"{key}_tariff"] = float(data.get(f"{key}_tariff", 0))
+            agency_entry[key] = float(data.get(key, 0))
         licenses[agency_name] = agency_entry
     except Exception as e:
         return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
@@ -127,8 +127,7 @@ def charge():
             words = data.get("weighted_word_count", 0)
 
     # Chercher le tarif depuis la config agence
-    tariff_key = f"{service}_tariff"
-    tariff = agency_info.get(tariff_key)
+    tariff = agency_info.get(service)
     if tariff is None:
         return jsonify({"success": False, "error": f"No tariff set for type {service}"}), 400
 
@@ -206,8 +205,9 @@ def get_debt():
 
     # DRY: retourner tous les tarifs connus côté config/env
     tariffs = {
-        f"{key}_tariff": agency_info.get(f"{key}_tariff", "")
-        for key in TARIFF_TYPES}
+        key: agency_info.get(key, "")
+        for key in TARIFF_TYPES
+    }
 
     greeting = agency_info.get("greeting", "")
     disabled_items = agency_info.get("disabled_items", "")
@@ -275,8 +275,8 @@ def update_tariffs():
 
     try:
         for key in TARIFF_TYPES:
-            if f"{key}_tariff" in data and data[f"{key}_tariff"] is not None:
-                agency_info[f"{key}_tariff"] = float(data[f"{key}_tariff"])
+            if key in data and data[key] is not None:
+                agency_info[key] = float(data[key])
     except Exception as e:
         return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
 

@@ -5,6 +5,7 @@ from tkinter import messagebox
 from dotenv import load_dotenv
 from db_logger import DBLogger
 import json
+import math
 
 load_dotenv()
 
@@ -60,15 +61,20 @@ class LicenceManagerFrame(Frame):
         self.frame_tariffs = LabelFrame(master=self, text="Tarification")
         self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
 
+        COLS = math.ceil(len(TARIFF_TYPES) / 3)  # Pour exactement 3 lignes
+
         for i, (key, label) in enumerate(TARIFF_TYPES.items()):
             varname = f"{key}_tariff_var"
             setattr(self, varname, StringVar())
-            Label(self.frame_tariffs, text=f"Tarif {label} (mot):").grid(row=7, column=2 * i, sticky="w")
-            Entry(self.frame_tariffs, textvariable=getattr(self, varname), width=8).grid(row=7, column=2 * i + 1,
+            row = 7 + i // COLS
+            col = 2 * (i % COLS)
+            Label(self.frame_tariffs, text=f"Tarif {label} (mot):").grid(row=row, column=col, sticky="w")
+            Entry(self.frame_tariffs, textvariable=getattr(self, varname), width=8).grid(row=row, column=col + 1,
                                                                                          sticky="w")
 
+        # Le bouton Enregistrer, mets-le à la suite, par exemple :
         Button(self.frame_tariffs, text="Enregistrer", command=self.update_tariffs).grid(
-            row=7, column=2 * len(TARIFF_TYPES), padx=(10, 0)
+            row=7 + math.ceil(len(TARIFF_TYPES) / COLS), column=0, columnspan=2 * COLS, pady=(8, 0)
         )
 
         # 2. Current Debt
@@ -161,7 +167,7 @@ class LicenceManagerFrame(Frame):
             for key in TARIFF_TYPES:
                 varname = f"{key}_tariff_var"
                 value_str = getattr(self, varname).get()
-                data[f"{key}_tariff"] = float(value_str)
+                data[key] = float(value_str)
         except ValueError:
             self.result_label.config(text="⚠️ Entrez des valeurs valides pour les tarifs.")
             return
@@ -200,7 +206,7 @@ class LicenceManagerFrame(Frame):
                 # DRY : boucle sur tous les types de tarif connus
                 for key in TARIFF_TYPES:
                     varname = f"{key}_tariff_var"
-                    value = tariffs.get(f"{key}_tariff", "")
+                    value = tariffs.get(key, "")
                     if isinstance(value, float) or isinstance(value, int):
                         # Par exemple, 5 décimales max (ou ce que tu veux)
                         value = f"{value:.5f}".rstrip('0').rstrip('.') if '.' in f"{value:.5f}" else str(value)
@@ -280,7 +286,7 @@ class LicenceManagerFrame(Frame):
         # DRY : on met tous les tarifs à 1
         data = {"agency_name": agency_name}
         for key in TARIFF_TYPES:
-            data[f"{key}_tariff"] = 1
+            data[key] = 1
 
         try:
             response = requests.post(API_URL_ADD_AGENCY, json=data, headers=headers)
