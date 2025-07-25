@@ -52,6 +52,7 @@ class LicenceManagerFrame(Frame):
         for key in TARIFF_TYPES:
             self.tariff_vars[key] = StringVar()
 
+        print("TARIFF_TYPES DANS __init__ :", TARIFF_TYPES)
 
         self.result_label = Label(self, text="Système de facturation post-payé (DETTE)", fg="red")
         self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))

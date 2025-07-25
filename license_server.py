@@ -72,7 +72,12 @@ def home():
 import os
 import json
 
-TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))
+TARIFF_TYPES_PATH = os.getenv("TARIFF_TYPES_PATH")
+if TARIFF_TYPES_PATH and os.path.exists(TARIFF_TYPES_PATH):
+    with open(TARIFF_TYPES_PATH, encoding="utf-8") as f:
+        TARIFF_TYPES = json.load(f)
+else:
+    TARIFF_TYPES = {}
 
 
 @app.route("/add_agency", methods=["POST"])
