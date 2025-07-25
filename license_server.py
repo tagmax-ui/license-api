@@ -308,6 +308,7 @@ def update_tariffs():
 
     print("agency_info après update:", agency_info)
     save_licenses()
+    print("licenses maintenant:", licenses)
     return jsonify({"success": True, "agency_info": agency_info})
 
 
