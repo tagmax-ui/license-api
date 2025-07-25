@@ -294,15 +294,14 @@ def update_tariffs():
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
     for key in TARIFF_TYPES:
-        if key in data:
-            try:
-                # Accepte vide ou null comme "gratuit"
-                if data[key] in ("", None):
-                    agency_info[key] = ""
-                else:
-                    agency_info[key] = float(data[key])
-            except Exception:
-                agency_info[key] = ""  # fallback : gratuit si erreur
+        value = data.get(key, "")  # Prend la valeur envoyée, sinon vide
+        try:
+            if value in ("", None):
+                agency_info[key] = ""
+            else:
+                agency_info[key] = float(value)
+        except Exception:
+            agency_info[key] = ""
 
     if "greeting" in data:
         agency_info["greeting"] = data["greeting"]
