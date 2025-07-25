@@ -153,6 +153,9 @@ class LicenceManagerFrame(Frame):
             int(self.start_timestamp_var.get()), int(self.end_timestamp_var.get()))
                ).grid(row=8, column=4, pady=(10, 0))
 
+        Button(self, text="Télécharger agences (JSON)", command=self.download_agency_dicts).grid(row=9, column=5,
+                                                                                                 pady=(20, 0))
+
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
         self.fetch_agencies()
@@ -180,15 +183,20 @@ class LicenceManagerFrame(Frame):
         data["greeting"] = self.greeting_var.get()
         data["disabled_items"] = self.disabled_items_var.get()
         print("Le data avant l'envoi: ", data)
-        try:
-            # Boucle sur tous les types de tarifs connus
-            for key in TARIFF_TYPES:
-                value_str = self.tariff_vars[key].get()
-                data[key] = float(value_str)
-        except ValueError:
-            data[key] = 0.0
+        for key in TARIFF_TYPES:
+            value_str = self.tariff_vars[key].get()
+            if value_str == "":
+                data[key] = ""  # case vide = gratuité
+            else:
+                try:
+                    data[key] = float(value_str)
+                except Exception:
+                    data[key] = ""
 
         headers = {"Authorization": f"Bearer {SECRET}"}
+
+        print("TARIFF_TYPES DANS LE CLIENT:", TARIFF_TYPES)
+        print("DATA À ENVOYER:", data)
 
 
         try:
@@ -396,7 +404,18 @@ class LicenceManagerFrame(Frame):
         except Exception as e:
             messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
 
-
+    def download_agency_dicts(self):
+        headers = {"Authorization": f"Bearer {SECRET}"}
+        try:
+            response = requests.get("https://license-api-h5um.onrender.com/download_licenses", headers=headers)
+            if response.status_code == 200:
+                with open("agencies.json", "w", encoding="utf-8") as f:
+                    f.write(response.text)
+                messagebox.showinfo("Export agences", "✅ Tous les dictionnaires d’agences ont été sauvegardés sous 'agencies.json'.")
+            else:
+                messagebox.showerror("Erreur", f"Erreur serveur: {response.text}")
+        except Exception as e:
+            messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
 
 if __name__ == "__main__":
     root = Tk()
