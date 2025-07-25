@@ -42,11 +42,17 @@ class LicenceManagerFrame(Frame):
         self.tariff_type_var = StringVar(value="weighter")
         self.item_name_var = StringVar()
         self.payment_var = StringVar()
+        self.credit_var = StringVar()
         self.new_agency_var = StringVar()
-        self.weighter_tariff_var = StringVar()
-        self.valuechecker_tariff_var = StringVar()
-        self.terminology_tariff_var = StringVar()
-        self.pretranslation_tariff_var = StringVar()
+        # self.weighter_tariff_var = StringVar()
+        # self.valuechecker_tariff_var = StringVar()
+        # self.terminology_tariff_var = StringVar()
+        # self.pretranslation_tariff_var = StringVar()
+        self.tariff_vars = {}
+        for key in TARIFF_TYPES:
+            self.tariff_vars[key] = StringVar()
+
+
         self.result_label = Label(self, text="Système de facturation post-payé (DETTE)", fg="red")
         self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
         self.tariff_display_to_key = {v: k for k, v in TARIFF_TYPES.items()}
@@ -74,15 +80,13 @@ class LicenceManagerFrame(Frame):
         self.frame_tariffs = LabelFrame(master=self, text="Tarification")
         self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
 
-        COLS = math.ceil(len(TARIFF_TYPES) / 3)  # Pour exactement 3 lignes
+        COLS = math.ceil(len(TARIFF_TYPES) / 10)  # Pour exactement 3 lignes
 
         for i, (key, label) in enumerate(TARIFF_TYPES.items()):
-            varname = f"{key}_tariff_var"
-            setattr(self, varname, StringVar())
             row = 7 + i // COLS
             col = 2 * (i % COLS)
-            Label(self.frame_tariffs, text=f"Tarif {label} (mot):").grid(row=row, column=col, sticky="w")
-            Entry(self.frame_tariffs, textvariable=getattr(self, varname), width=8).grid(row=row, column=col + 1,
+            Label(self.frame_tariffs, text=label).grid(row=row, column=col, sticky="w")
+            Entry(self.frame_tariffs, textvariable=self.tariff_vars[key], width=8).grid(row=row, column=col + 1,
                                                                                          sticky="w")
 
         # Le bouton Enregistrer, mets-le à la suite, par exemple :
@@ -174,19 +178,17 @@ class LicenceManagerFrame(Frame):
         data = {"agency_name": agency_name}
         data["greeting"] = self.greeting_var.get()
         data["disabled_items"] = self.disabled_items_var.get()
-
+        print("Le data avant l'envoi: ", data)
         try:
             # Boucle sur tous les types de tarifs connus
             for key in TARIFF_TYPES:
-                varname = f"{key}_tariff_var"
-                value_str = getattr(self, varname).get()
+                value_str = self.tariff_vars[key].get()
                 data[key] = float(value_str)
         except ValueError:
-            self.result_label.config(text="⚠️ Entrez des valeurs valides pour les tarifs.")
-            return
+            data[key] = 0.0
 
         headers = {"Authorization": f"Bearer {SECRET}"}
-        print("Le data avant l'envoi: ", data)
+
 
         try:
             response = requests.post(
@@ -218,12 +220,10 @@ class LicenceManagerFrame(Frame):
                 tariffs = result.get("tariffs", {})
                 # DRY : boucle sur tous les types de tarif connus
                 for key in TARIFF_TYPES:
-                    varname = f"{key}_tariff_var"
                     value = tariffs.get(key, "")
                     if isinstance(value, float) or isinstance(value, int):
-                        # Par exemple, 5 décimales max (ou ce que tu veux)
                         value = f"{value:.5f}".rstrip('0').rstrip('.') if '.' in f"{value:.5f}" else str(value)
-                    getattr(self, varname).set(value)
+                    self.tariff_vars[key].set(value)
                 self.result_label.config(text="")
                 greeting = result.get("greeting", "")
                 self.greeting_var.set(greeting)
