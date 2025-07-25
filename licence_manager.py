@@ -16,8 +16,21 @@ API_URL_LIST_AGENCIES = "https://license-api-h5um.onrender.com/list_agencies"
 API_URL_GET_DEBT = "https://license-api-h5um.onrender.com/get_debt"
 API_URL_DOWNLOAD = "https://license-api-h5um.onrender.com/download_logs"
 SECRET = os.getenv("ADMIN_PASSWORD")
-TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: label
+
+tariff_types_path = os.getenv("TARIFF_TYPES_PATH")
+if tariff_types_path and os.path.exists(tariff_types_path):
+    with open(tariff_types_path, encoding="utf-8") as f:
+        TARIFF_TYPES = json.load(f)
+else:
+    TARIFF_TYPES = {}
+
+
 db_logger = DBLogger()
+
+
+
+
+
 
 class LicenceManagerFrame(Frame):
     def __init__(self, master=None):
