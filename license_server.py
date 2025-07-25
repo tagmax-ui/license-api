@@ -135,7 +135,10 @@ def charge():
     # Chercher le tarif depuis la config agence
     tariff = agency_info.get(service)
     if tariff is None:
-        return jsonify({"success": False, "error": f"No tariff set for type {service}"}), 400
+        if not tariff:  # "", None ou 0 = gratuit
+            amount = 0
+        else:
+            amount = round(words * float(tariff), 2)
 
     # Calcul du montant
     amount = round(words * tariff, 2)
@@ -285,12 +288,16 @@ def update_tariffs():
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
-    try:
-        for key in TARIFF_TYPES:
-            if key in data and data[key] is not None:
-                agency_info[key] = float(data[key])
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
+    for key in TARIFF_TYPES:
+        if key in data:
+            try:
+                # Accepte vide ou null comme "gratuit"
+                if data[key] in ("", None):
+                    agency_info[key] = ""
+                else:
+                    agency_info[key] = float(data[key])
+            except Exception:
+                agency_info[key] = ""  # fallback : gratuit si erreur
 
     if "greeting" in data:
         agency_info["greeting"] = data["greeting"]
@@ -299,6 +306,7 @@ def update_tariffs():
     disabled = data.get("disabled_items", "")
     agency_info["disabled_items"] = disabled
 
+    print("agency_info après update:", agency_info)
     save_licenses()
     return jsonify({"success": True, "agency_info": agency_info})
 

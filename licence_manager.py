@@ -223,7 +223,7 @@ class LicenceManagerFrame(Frame):
                     value = tariffs.get(key, "")
                     if isinstance(value, float) or isinstance(value, int):
                         value = f"{value:.5f}".rstrip('0').rstrip('.') if '.' in f"{value:.5f}" else str(value)
-                    self.tariff_vars[key].set(value)
+                    self.tariff_vars[key].set("" if value == "" else value)
                 self.result_label.config(text="")
                 greeting = result.get("greeting", "")
                 self.greeting_var.set(greeting)
