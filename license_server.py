@@ -3,6 +3,9 @@ import json
 from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 from db_logger import DBLogger
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 
 print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
@@ -161,6 +164,18 @@ def charge():
         filename=filename,
         words=words,
         tariff=tariff,
+        amount=amount,
+        balance=balance
+    )
+
+    notify_usage_by_email(
+        client=client,
+        service=service,
+        order=order,
+        user=user,
+        profile=profile,
+        filename=filename,
+        words=words,
         amount=amount,
         balance=balance
     )
@@ -411,6 +426,64 @@ def reset_logs():
         return jsonify({"success": True, "message": "Logs réinitialisés."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/send_email", methods=["POST"])
+def send_email_route():
+    data = request.get_json()
+    to = data.get("to")
+    subject = data.get("subject")
+    content = data.get("content")
+
+    if not all([to, subject, content]):
+        return jsonify({"success": False, "error": "Paramètres requis : to, subject, content"}), 400
+
+    status = send_email(to, subject, content)
+    if status and status < 300:
+        return jsonify({"success": True, "status_code": status})
+    return jsonify({"success": False, "error": "Échec de l’envoi"}), 500
+
+def notify_usage_by_email(client, service, order, user, profile, filename, words, amount, balance):
+    subject = f"[TAGmax] {client} a utilisé le service {service}"
+    html_content = f"""
+        <p>L’agence <strong>{client}</strong> vient d’utiliser le service <strong>{service}</strong>.</p>
+        <ul>
+            <li>Commande : <strong>{order or "(aucun numéro)"}</strong></li>
+            <li>Utilisateur : <strong>{user or "(inconnu)"}</strong></li>
+            <li>Fichier : <strong>{filename or "(sans nom)"}</strong></li>
+            <li>Mots facturés : <strong>{words}</strong></li>
+            <li>Montant débité : <strong>{amount:.2f} $</strong></li>
+            <li>Dette actuelle : <strong>{balance:.2f} $</strong></li>
+        </ul>
+    """
+
+    try:
+        message = Mail(
+            from_email='jessylapointe@gmail.com',  # ton adresse vérifiée SendGrid
+            to_emails='jessylapointe@gmail.com',   # destinataire (toi-même)
+            subject=subject,
+            html_content=html_content
+        )
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        sg.send(message)
+    except Exception as e:
+        print("[Erreur lors de l’envoi du courriel de notification]", e)
+
+def send_email(to_email, subject, html_content):
+    try:
+        message = Mail(
+            from_email='jessylapointe@gmail.com',
+            to_emails=to_email,
+            subject=subject,
+            html_content=html_content
+        )
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        return response.status_code
+    except Exception as e:
+        print(f"[Erreur SendGrid] {e}")
+        return None
+
 
 
 if __name__ == "__main__":
