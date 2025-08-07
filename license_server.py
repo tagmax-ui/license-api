@@ -503,6 +503,23 @@ def delete_transactions_by_user():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/delete_transactions_by_service", methods=["POST"])
+def delete_transactions_by_service():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    service = data.get("service")
+    if not service:
+        return jsonify({"success": False, "error": "Missing service"}), 400
+
+    try:
+        deleted_count = db_logger.delete_transactions_by_service(service)
+        return jsonify({"success": True, "message": f"{deleted_count} transactions supprimées pour le service '{service}'."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
