@@ -81,3 +81,11 @@ class DBLogger:
             deleted_count = cur.rowcount
             conn.commit()
         return deleted_count
+
+    def delete_transactions_by_service(self, service):
+        with sqlite3.connect(self.db_path) as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM transactions WHERE service = ?", (service,))
+            deleted_count = cur.rowcount
+            conn.commit()
+        return deleted_count

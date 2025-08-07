@@ -60,6 +60,7 @@ class LicenceManagerFrame(Frame):
         self.tariff_display_to_key = {v: k for k, v in TARIFF_TYPES.items()}
         self.greeting_var = StringVar()
         self.disabled_items_var = StringVar()
+        self.delete_service_var = StringVar()
 
         self.frame_agency = LabelFrame(master=self)
         self.frame_agency.grid(row=1, column=0, sticky="ew", columnspan=12)
@@ -154,13 +155,16 @@ class LicenceManagerFrame(Frame):
             int(self.start_timestamp_var.get()), int(self.end_timestamp_var.get()))
                ).grid(row=8, column=4, pady=(10, 0))
 
-        Button(self, text="Télécharger agences (JSON)", command=self.download_agency_dicts).grid(row=9, column=5,
-                                                                                                 pady=(20, 0))
-
+        Button(self, text="Télécharger agences (JSON)", command=self.download_agency_dicts).grid(row=9, column=5)
 
         Label(self, text="Supprimer transactions d’un utilisateur :").grid(row=10, column=0, sticky="w", pady=(20, 0))
         Entry(self, textvariable=self.delete_user_var, width=18).grid(row=10, column=1, sticky="w", pady=(20, 0))
         Button(self, text="Supprimer transactions utilisateur", command=self.delete_transactions_by_user, fg="red").grid(row=10, column=2, pady=(20, 0))
+
+        Label(self, text="Supprimer transactions d’un service :").grid(row=11, column=0, sticky="w", pady=(20, 0))
+        Entry(self, textvariable=self.delete_service_var, width=18).grid(row=11, column=1, sticky="w", pady=(20, 0))
+        Button(self, text="Supprimer transactions service", command=self.delete_transactions_by_service, fg="red").grid(
+            row=11, column=2, pady=(20, 0))
 
 
         self.grid_columnconfigure(1, weight=1)
@@ -454,7 +458,35 @@ class LicenceManagerFrame(Frame):
             messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
             self.result_label.config(text=f"❌ Erreur réseau: {e}")
 
+    def delete_transactions_by_service(self):
+        service = self.delete_service_var.get().strip()
+        if not service:
+            messagebox.showwarning("Champ vide", "Veuillez entrer un nom de service.")
+            return
 
+        # Double confirmation !
+        if not messagebox.askyesno("Attention", f"Supprimer TOUTES les transactions du service « {service} » ?"):
+            return
+        if not messagebox.askyesno("Confirmation ultime",
+                                   f"🛑 Cette action est IRRÉVERSIBLE.\nSupprimer VRAIMENT toutes les transactions pour « {service} » ?"):
+            return
+
+        url = "https://license-api-h5um.onrender.com/delete_transactions_by_service"
+        headers = {"Authorization": f"Bearer {SECRET}"}
+        data = {"service": service}
+
+        try:
+            response = requests.post(url, json=data, headers=headers)
+            result = response.json()
+            if result.get("success"):
+                messagebox.showinfo("Suppression", result.get("message", "Transactions supprimées."))
+                self.result_label.config(text=f"✅ {result.get('message', '')}")
+            else:
+                messagebox.showerror("Erreur", f"Erreur : {result.get('error')}")
+                self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
+        except Exception as e:
+            messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}")
 
 if __name__ == "__main__":
     root = Tk()
