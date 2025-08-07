@@ -73,3 +73,12 @@ class DBLogger:
                 (start_timestamp, end_timestamp)
             )
             conn.commit()
+
+    def delete_transactions_by_user(self, username):
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM logs WHERE user = ?", (username,))
+        deleted_count = cur.rowcount
+        conn.commit()
+        conn.close()
+        return deleted_count

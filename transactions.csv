@@ -1,2 +1,30 @@
-id,client,timestamp,service,order,user,filename,words,tariff,amount,balance
-1,symcom_20250531,1752947940,terminology,000,Michèle Gagnon,000.mqxliff,10,5.0,50.0,10200.0
+id,client,timestamp,service,order,user,filename,words,tariff,amount,balance,profile
+235,symcom_20250531,1754506047,prepare_terminology,005-250731-006,Marc-André Audette,,37567,0.00242,90.91,248.54,sym-locale-admin
+234,symcom_20250531,1754488613,generate_pretranslation,127-250805-015,Marc-André Audette,,3137,0.00242,7.59,157.63,SYM
+233,symcom_20250531,1754488412,generate_pretranslation,014-250804-001,Joanie Piché,,6336,0.00242,15.33,150.04,Joanie Piché
+232,symcom_20250531,1754485478,prepare_terminology,127-250805-015,Marc-André Audette,,3137,0.00242,7.59,134.70999999999998,SYM
+231,symcom_20250531,1754451100,generate_pretranslation,085-250729-006_2,Jessy LaPointe The King,,7441,0.00242,18.01,127.11999999999999,Michèle Gagnon
+230,symcom_20250531,1754421121,prepare_terminology,014-250804-001,Marc-André Audette,,6336,0.00242,15.33,109.10999999999999,SYM
+229,symcom_20250531,1754411990,generate_pretranslation,017-250801-004,Marc-André Audette,,1143,0.00242,2.77,93.77999999999999,SYM
+228,symcom_20250531,1754406940,generate_pretranslation,086-250801-003,Marc-André Audette,,6173,0.00242,14.94,91.00999999999999,sym-locale-admin
+227,symcom_20250531,1754403673,prepare_terminology,017-250801-004,Marc-André Audette,,1143,0.00242,2.77,76.07,SYM
+226,symcom_20250531,1754394668,prepare_terminology,086-250801-003,Marc-André Audette,,6173,0.00242,14.94,73.3,sym-locale-admin
+225,symcom_20250531,1754334600,generate_pretranslation,025-250728-002,Marc-André Audette,,1376,0.00242,3.33,58.36,Traducteur
+224,symcom_20250531,1754333966,prepare_terminology,08_04_14_58,Jessy LaPointe The King,,517,0.00242,1.25,55.03,Michèle Gagnon
+223,symcom_20250531,1754333236,generate_pretranslation,08_03_14_31,Jessy LaPointe The King,,517,0.00242,1.25,53.78,Michèle Gagnon
+222,symcom_20250531,1754333031,generate_pretranslation,08_03_14_31,Jessy LaPointe The King,,517,0.00242,1.25,52.53,Michèle Gagnon
+221,symcom_20250531,1754331126,prepare_terminology,025-250728-002,Marc-André Audette,,1376,0.00242,3.33,51.28,sym-locale-admin
+220,symcom_20250531,1754245896,prepare_terminology,08_03_14_31,Jessy LaPointe The King,,517,0.00242,1.25,47.95,Michèle Gagnon
+219,symcom_20250531,1754188841,prepare_terminology,08_02_22_40,Jessy LaPointe The King,,517,0.00242,1.25,46.7,Michèle Gagnon
+218,symcom_20250531,1754107159,prepare_terminology,08_01_23_58,Jessy LaPointe The King,,517,0.00242,1.25,45.45,Michèle Gagnon
+217,symcom_20250531,1754107042,prepare_terminology,08_01_23_56,Jessy LaPointe The King,,517,0.00242,1.25,44.2,Michèle Gagnon
+216,symcom_20250531,1754106865,prepare_terminology,08_01_23_53,Jessy LaPointe The King,,517,0.00242,1.25,42.95,Michèle Gagnon
+215,symcom_20250531,1754103610,prepare_terminology,08_01_22_27,Jessy LaPointe The King,,517,0.00242,1.25,41.7,Michèle Gagnon
+214,symcom_20250531,1754101688,prepare_terminology,08_01_22_27,Jessy LaPointe The King,,517,0.00242,1.25,40.45,Michèle Gagnon
+213,symcom_20250531,1754075345,generate_pretranslation,085-250729-006_2,Joanie Piché,,7441,0.00242,18.01,39.2,Joanie Piché
+212,symcom_20250531,1754064365,prepare_terminology,085-250729-006_2,Marc-André Audette,,7441,0.00242,18.01,21.19,SYM
+211,symcom_20250531,1754064347,prepare_terminology,08_01_12_05,Jessy LaPointe The King,,658,0.00242,1.59,3.18,Michèle Gagnon
+210,symcom_20250531,1754029313,prepare_terminology,08_01_02_21,Jessy LaPointe The King,,658,0.00242,1.59,1.59,Michèle Gagnon
+209,symcom_20250531,1754029080,payment,,,,0,0.0,-1.59,0.0,
+208,symcom_20250531,1754028891,prepare_terminology,08_01_02_14,Jessy LaPointe The King,,658,0.00242,1.59,1.59,Michèle Gagnon
+207,symcom_20250531,1754028783,payment,,,,0,0.0,-5143.83,0.0,

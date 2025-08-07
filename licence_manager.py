@@ -44,6 +44,7 @@ class LicenceManagerFrame(Frame):
         self.payment_var = StringVar()
         self.credit_var = StringVar()
         self.new_agency_var = StringVar()
+        self.delete_user_var = StringVar()
         # self.weighter_tariff_var = StringVar()
         # self.valuechecker_tariff_var = StringVar()
         # self.terminology_tariff_var = StringVar()
@@ -155,6 +156,12 @@ class LicenceManagerFrame(Frame):
 
         Button(self, text="Télécharger agences (JSON)", command=self.download_agency_dicts).grid(row=9, column=5,
                                                                                                  pady=(20, 0))
+
+
+        Label(self, text="Supprimer transactions d’un utilisateur :").grid(row=10, column=0, sticky="w", pady=(20, 0))
+        Entry(self, textvariable=self.delete_user_var, width=18).grid(row=10, column=1, sticky="w", pady=(20, 0))
+        Button(self, text="Supprimer transactions utilisateur", command=self.delete_transactions_by_user, fg="red").grid(row=10, column=2, pady=(20, 0))
+
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
@@ -416,6 +423,38 @@ class LicenceManagerFrame(Frame):
                 messagebox.showerror("Erreur", f"Erreur serveur: {response.text}")
         except Exception as e:
             messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
+
+
+    def delete_transactions_by_user(self):
+        username = self.delete_user_var.get().strip()
+        if not username:
+            messagebox.showwarning("Champ vide", "Veuillez entrer un nom d’utilisateur.")
+            return
+
+        # Double confirmation !
+        if not messagebox.askyesno("Attention", f"Supprimer TOUTES les transactions de l’utilisateur « {username} » ?"):
+            return
+        if not messagebox.askyesno("Confirmation ultime", f"🛑 Cette action est IRRÉVERSIBLE.\nSupprimer VRAIMENT toutes les transactions pour « {username} » ?"):
+            return
+
+        url = "https://license-api-h5um.onrender.com/delete_transactions_by_user"
+        headers = {"Authorization": f"Bearer {SECRET}"}
+        data = {"user": username}
+
+        try:
+            response = requests.post(url, json=data, headers=headers)
+            result = response.json()
+            if result.get("success"):
+                messagebox.showinfo("Suppression", result.get("message", "Transactions supprimées."))
+                self.result_label.config(text=f"✅ {result.get('message', '')}")
+            else:
+                messagebox.showerror("Erreur", f"Erreur : {result.get('error')}")
+                self.result_label.config(text=f"❌ Erreur: {result.get('error')}")
+        except Exception as e:
+            messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+
+
 
 if __name__ == "__main__":
     root = Tk()

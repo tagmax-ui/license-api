@@ -485,6 +485,24 @@ def send_email(to_email, subject, html_content):
         return None
 
 
+@app.route("/delete_transactions_by_user", methods=["POST"])
+def delete_transactions_by_user():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    username = data.get("user")
+    if not username:
+        return jsonify({"success": False, "error": "Missing user"}), 400
+
+    try:
+        # Tu dois ajouter cette méthode à DBLogger si elle n'existe pas.
+        deleted_count = db_logger.delete_transactions_by_user(username)
+        return jsonify({"success": True, "message": f"{deleted_count} transactions supprimées pour l'utilisateur '{username}'."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
