@@ -163,7 +163,7 @@ class LicenceManagerFrame(Frame):
 
         Label(self, text="Supprimer transactions d’un service :").grid(row=11, column=0, sticky="w", pady=(20, 0))
         Entry(self, textvariable=self.delete_service_var, width=18).grid(row=11, column=1, sticky="w", pady=(20, 0))
-        Button(self, text="Supprimer transactions service", command=self.delete_transactions_by_service, fg="red").grid(
+        Button(self, text="Supprimer transactions service (id en anglais)", command=self.delete_transactions_by_service, fg="red").grid(
             row=11, column=2, pady=(20, 0))
 
 
