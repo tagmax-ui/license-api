@@ -63,7 +63,7 @@ def verify_agency_token_and_init_lexicon():
 
     g.agency = agency
 
-@lexicon_blueprint.route('/lexicon/download', methods=['GET'])
+@lexicon_blueprint.route('/download', methods=['GET'])
 def download_lexicon():
     """
     Permet à une agence de télécharger son fichier Excel Lexicon complet.
@@ -82,7 +82,7 @@ def download_lexicon():
         return jsonify(success=False, error=str(e)), 500
 
 
-@lexicon_blueprint.route('/lexicon/entry/<english_long_form>', methods=['POST'])
+@lexicon_blueprint.route('/entry/<english_long_form>', methods=['POST'])
 def update_entry(english_long_form):
     xlsx_path = os.path.join(DICT_DIR, f'{g.agency}.xlsx')
 
@@ -109,7 +109,7 @@ def update_entry(english_long_form):
 
 
 
-@lexicon_blueprint.route('/lexicon/upload', methods=['POST'])
+@lexicon_blueprint.route('/upload', methods=['POST'])
 def upload_lexicon():
     """
     Permet à une agence de téléverser un nouveau fichier Excel Lexicon complet.
@@ -147,7 +147,7 @@ def upload_lexicon():
 
     return jsonify(success=True, message="Lexicon uploaded successfully.")
 
-@lexicon_blueprint.route('/lexicon/unlock', methods=['POST'])
+@lexicon_blueprint.route('/unlock', methods=['POST'])
 def force_unlock():
     """
     Supprime le fichier .lock du lexique de l'agence.
