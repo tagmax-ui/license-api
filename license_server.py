@@ -5,10 +5,12 @@ from dotenv import load_dotenv
 from db_logger import DBLogger
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from lexicon_routes import lexicon_blueprint
 
 
 print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
+app.register_blueprint(lexicon_blueprint, url_prefix='/lexicon')
 db_logger = DBLogger()
 load_dotenv()
 admin_password = os.getenv("ADMIN_PASSWORD")
