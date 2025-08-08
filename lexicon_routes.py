@@ -90,6 +90,16 @@ def update_entry(english_long_form):
     try:
         with lexicon_file_lock(xlsx_path):
             df = pd.read_excel(xlsx_path, header=None)
+
+            # Ajouté : tolérance pour colonnes manquantes
+            expected_cols = len(LEXICON_COLUMNS)
+            if df.shape[1] < expected_cols:
+                for col in range(df.shape[1], expected_cols):
+                    df[col] = ""
+            elif df.shape[1] > expected_cols:
+                return jsonify(success=False,
+                               error=f"Lexicon file has too many columns ({df.shape[1]} > {expected_cols})"), 400
+
             payload = request.get_json()
             if not isinstance(payload, dict):
                 return jsonify(success=False, error='Invalid JSON body'), 400
@@ -131,9 +141,13 @@ def upload_lexicon():
             file.save(temp_path)
             # Vérification de structure (nombre de colonnes, etc.)
             df = pd.read_excel(temp_path, header=None)
-            if df.shape[1] != len(LEXICON_COLUMNS):
-                os.remove(temp_path)
-                return jsonify(success=False, error=f"Lexicon file must have {len(LEXICON_COLUMNS)} columns."), 400
+            if df.shape[1] < len(LEXICON_COLUMNS):
+                # Complète les colonnes manquantes avec des vides
+                for col in range(df.shape[1], len(LEXICON_COLUMNS)):
+                    df[col] = ""
+            elif df.shape[1] > len(LEXICON_COLUMNS):
+                return jsonify(success=False,
+                               error=f"Lexicon file has too many columns ({df.shape[1]} > {len(LEXICON_COLUMNS)})"), 400
             # Si OK, on remplace l'ancien fichier
             shutil.move(temp_path, xlsx_path)
     except RuntimeError as e:
