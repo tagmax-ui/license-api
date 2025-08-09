@@ -107,6 +107,26 @@ def update_entry(english_long_form):
 
             df, message = update_or_add_lexicon_entry(df, english_long_form, payload, username)
 
+            # Après la mise à jour/ajout
+            key_col = 'english_long_form_singular'
+
+            # Tri insensible à la casse, vides à la fin
+            df[key_col] = df[key_col].fillna('')
+            df.sort_values(
+                by=[key_col],
+                key=lambda s: s.str.casefold(),  # meilleur que lower() pour l’anglais
+                na_position='last',
+                kind='mergesort',  # stable
+                inplace=True
+            )
+            df.reset_index(drop=True, inplace=True)
+
+            # Remet l'ordre des colonnes "connues" en tête (comme tu le fais déjà)
+            df = df[[c for c in LEXICON_COLUMNS if c in df.columns] +
+                    [c for c in df.columns if c not in LEXICON_COLUMNS]]
+
+            df.to_excel(xlsx_path, index=False)
+
             df = df[[col for col in LEXICON_COLUMNS if col in df.columns] + [col for col in df.columns if
                                                                              col not in LEXICON_COLUMNS]]
             df.to_excel(xlsx_path, index=False)
@@ -213,7 +233,20 @@ def delete_entry(english_long_form_singular):
                 df = df[~mask]
                 message = "Entry deleted"
 
-            # Remettre l'ordre des colonnes connu en premier (comme pour POST)
+            # Après la mise à jour/ajout
+
+            # Tri insensible à la casse, vides à la fin
+            df[key_col] = df[key_col].fillna('')
+            df.sort_values(
+                by=[key_col],
+                key=lambda s: s.str.casefold(),  # meilleur que lower() pour l’anglais
+                na_position='last',
+                kind='mergesort',  # stable
+                inplace=True
+            )
+            df.reset_index(drop=True, inplace=True)
+
+            # Remet l'ordre des colonnes "connues" en tête (comme tu le fais déjà)
             df = df[[c for c in LEXICON_COLUMNS if c in df.columns] +
                     [c for c in df.columns if c not in LEXICON_COLUMNS]]
 
