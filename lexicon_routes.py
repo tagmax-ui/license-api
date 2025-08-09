@@ -177,6 +177,58 @@ def force_unlock():
     except Exception as e:
         return jsonify(success=False, error=f"Unable to remove lock: {e}"), 500
 
+@lexicon_blueprint.route('/entry/<english_long_form_singular>', methods=['DELETE'])
+def delete_entry(english_long_form_singular):
+    """
+    Supprime une entrée (hard delete) ou la désactive (soft delete) en se basant
+    sur la colonne 'english_long_form_singular' comme clé.
+
+    - Hard delete (par défaut) : DELETE /lexicon/entry/<clé>
+    - Soft delete :               DELETE /lexicon/entry/<clé>?soft=1  (met active="0")
+    """
+    xlsx_path = os.path.join(DICT_DIR, f'{g.agency}.xlsx')
+    try:
+        with lexicon_file_lock(xlsx_path):
+            df = pd.read_excel(xlsx_path, header=0)
+
+            # Robustesse : garantir la présence de toutes les colonnes attendues
+            for col in LEXICON_COLUMNS:
+                if col not in df.columns:
+                    df[col] = ""
+
+            key_col = 'english_long_form_singular'
+            if key_col not in df.columns:
+                return jsonify(success=False, error=f"Missing column '{key_col}'"), 500
+
+            mask = df[key_col] == english_long_form_singular
+            if not mask.any():
+                return jsonify(success=False, message="Entry not found"), 404
+
+            # soft delete ?soft=1 -> active="0", sinon suppression physique
+            soft = request.args.get('soft', '0').lower() in ('1', 'true', 'yes', 'y')
+            if soft:
+                df.loc[mask, 'active'] = "0"
+                message = "Entry deactivated"
+            else:
+                df = df[~mask]
+                message = "Entry deleted"
+
+            # Remettre l'ordre des colonnes connu en premier (comme pour POST)
+            df = df[[c for c in LEXICON_COLUMNS if c in df.columns] +
+                    [c for c in df.columns if c not in LEXICON_COLUMNS]]
+
+            df.to_excel(xlsx_path, index=False)
+
+    except RuntimeError as e:
+        return jsonify(success=False, error=str(e)), 409
+    except Exception as e:
+        return jsonify(success=False, error=f"Unexpected error: {e}"), 500
+
+    return jsonify(success=True, message=message), 200
+
+
+
+
 def update_or_add_lexicon_entry(df, english_long_form, payload, username):
     timestamp = int(time.time())
     key_col = 'english_long_form_singular'
