@@ -103,7 +103,7 @@ def update_entry(english_long_form):
             payload = request.get_json()
             if not isinstance(payload, dict):
                 return jsonify(success=False, error='Invalid JSON body'), 400
-            username = payload.get('last_modified_by', 'Unknown')
+            username = payload.get('modified_by', 'Inconnu')
 
             df, message = update_or_add_lexicon_entry(df, english_long_form, payload, username)
 
