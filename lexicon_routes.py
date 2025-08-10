@@ -30,6 +30,33 @@ LEXICON_COLUMNS = [
     'notes'
 ]
 
+KEY_PLUR = 'english_long_form_plural'
+KEY_SING = 'english_long_form_singular'
+
+def _ensure_columns(df):
+    for col in LEXICON_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+    return df
+
+def _display_key_series(df):
+    s = df.get(KEY_SING, "").fillna("").astype(str).str.strip()
+    p = df.get(KEY_PLUR, "").fillna("").astype(str).str.strip()
+    # prefer singular, else plural, else "?????"
+    disp = s.mask(s == "", p).replace("", "?????")
+    return disp
+
+def _sort_and_reorder(df):
+    disp = _display_key_series(df)
+    order = disp.str.casefold()
+    # stable sort by our display key
+    df = df.loc[order.sort_values(kind='mergesort').index]
+    df = df.reset_index(drop=True)
+    # keep known columns first
+    df = df[[c for c in LEXICON_COLUMNS if c in df.columns] +
+            [c for c in df.columns if c not in LEXICON_COLUMNS]]
+    return df
+
 
 @contextlib.contextmanager
 def lexicon_file_lock(xlsx_path):
@@ -90,53 +117,54 @@ def download_lexicon():
 def update_entry(english_long_form):
     xlsx_path = os.path.join(DICT_DIR, f'{g.agency}.xlsx')
 
-    # ----> LOCK ici <-----
     try:
         with lexicon_file_lock(xlsx_path):
             df = pd.read_excel(xlsx_path, header=0)
-
-            # Ajouté : tolérance pour colonnes manquantes
-            for col in LEXICON_COLUMNS:
-                if col not in df.columns:
-                    df[col] = ""
+            df = _ensure_columns(df)
 
             payload = request.get_json()
             if not isinstance(payload, dict):
                 return jsonify(success=False, error='Invalid JSON body'), 400
             username = payload.get('modified_by', 'Inconnu')
 
-            df, message = update_or_add_lexicon_entry(df, english_long_form, payload, username)
+            # --- find by singular first, then by plural ---
+            mask = (df.get(KEY_SING, "") == english_long_form)
+            if not mask.any():
+                mask = (df.get(KEY_PLUR, "") == english_long_form)
 
-            # Après la mise à jour/ajout
-            key_col = 'english_long_form_singular'
+            timestamp = int(time.time())
+            if mask.any():
+                row_idx = df.index[mask][0]
+                # update all provided columns (allow key changes)
+                for k, v in payload.items():
+                    if k in df.columns:
+                        df.at[row_idx, k] = v
+                df.at[row_idx, 'modified_by'] = username
+                df.at[row_idx, 'modified_on'] = timestamp
+                message = "Entry updated"
+            else:
+                # create new row
+                new_row = {col: "" for col in df.columns}
+                new_row.update({k: v for k, v in payload.items() if k in df.columns})
+                # if both keys empty, force a surrogate key
+                if not (str(new_row.get(KEY_SING, "")).strip() or str(new_row.get(KEY_PLUR, "")).strip()):
+                    new_row[KEY_SING] = "?????"
+                new_row['modified_by'] = username
+                new_row['modified_on'] = timestamp
+                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                message = "Entry created"
 
-            # Tri insensible à la casse, vides à la fin
-            df[key_col] = df[key_col].fillna('')
-            df.sort_values(
-                by=[key_col],
-                key=lambda s: s.str.casefold(),  # meilleur que lower() pour l’anglais
-                na_position='last',
-                kind='mergesort',  # stable
-                inplace=True
-            )
-            df.reset_index(drop=True, inplace=True)
-
-            # Remet l'ordre des colonnes "connues" en tête (comme tu le fais déjà)
-            df = df[[c for c in LEXICON_COLUMNS if c in df.columns] +
-                    [c for c in df.columns if c not in LEXICON_COLUMNS]]
-
-            df.to_excel(xlsx_path, index=False)
-
-            df = df[[col for col in LEXICON_COLUMNS if col in df.columns] + [col for col in df.columns if
-                                                                             col not in LEXICON_COLUMNS]]
+            # sort by display key and save
+            df = _sort_and_reorder(df)
             df.to_excel(xlsx_path, index=False)
 
     except RuntimeError as e:
-        return jsonify(success=False, error=str(e)), 409  # 409 = Conflict
+        return jsonify(success=False, error=str(e)), 409
     except Exception as e:
         return jsonify(success=False, error=f"Unexpected error: {e}"), 500
 
     return jsonify(success=True, message=message), 200
+
 
 
 
@@ -197,34 +225,25 @@ def force_unlock():
     except Exception as e:
         return jsonify(success=False, error=f"Unable to remove lock: {e}"), 500
 
-@lexicon_blueprint.route('/entry/<english_long_form_singular>', methods=['DELETE'])
-def delete_entry(english_long_form_singular):
+@lexicon_blueprint.route('/entry/<english_key>', methods=['DELETE'])
+def delete_entry(english_key):
     """
-    Supprime une entrée (hard delete) ou la désactive (soft delete) en se basant
-    sur la colonne 'english_long_form_singular' comme clé.
-
-    - Hard delete (par défaut) : DELETE /lexicon/entry/<clé>
-    - Soft delete :               DELETE /lexicon/entry/<clé>?soft=1  (met active="0")
+    Hard delete by default; soft delete with ?soft=1.
+    Matches either english_long_form_singular or english_long_form_plural.
     """
     xlsx_path = os.path.join(DICT_DIR, f'{g.agency}.xlsx')
     try:
         with lexicon_file_lock(xlsx_path):
             df = pd.read_excel(xlsx_path, header=0)
+            df = _ensure_columns(df)
 
-            # Robustesse : garantir la présence de toutes les colonnes attendues
-            for col in LEXICON_COLUMNS:
-                if col not in df.columns:
-                    df[col] = ""
+            mask = (df.get(KEY_SING, "") == english_key)
+            if not mask.any():
+                mask = (df.get(KEY_PLUR, "") == english_key)
 
-            key_col = 'english_long_form_singular'
-            if key_col not in df.columns:
-                return jsonify(success=False, error=f"Missing column '{key_col}'"), 500
-
-            mask = df[key_col] == english_long_form_singular
             if not mask.any():
                 return jsonify(success=False, message="Entry not found"), 404
 
-            # soft delete ?soft=1 -> active="0", sinon suppression physique
             soft = request.args.get('soft', '0').lower() in ('1', 'true', 'yes', 'y')
             if soft:
                 df.loc[mask, 'active'] = "0"
@@ -233,23 +252,7 @@ def delete_entry(english_long_form_singular):
                 df = df[~mask]
                 message = "Entry deleted"
 
-            # Après la mise à jour/ajout
-
-            # Tri insensible à la casse, vides à la fin
-            df[key_col] = df[key_col].fillna('')
-            df.sort_values(
-                by=[key_col],
-                key=lambda s: s.str.casefold(),  # meilleur que lower() pour l’anglais
-                na_position='last',
-                kind='mergesort',  # stable
-                inplace=True
-            )
-            df.reset_index(drop=True, inplace=True)
-
-            # Remet l'ordre des colonnes "connues" en tête (comme tu le fais déjà)
-            df = df[[c for c in LEXICON_COLUMNS if c in df.columns] +
-                    [c for c in df.columns if c not in LEXICON_COLUMNS]]
-
+            df = _sort_and_reorder(df)
             df.to_excel(xlsx_path, index=False)
 
     except RuntimeError as e:
@@ -258,6 +261,7 @@ def delete_entry(english_long_form_singular):
         return jsonify(success=False, error=f"Unexpected error: {e}"), 500
 
     return jsonify(success=True, message=message), 200
+
 
 
 
