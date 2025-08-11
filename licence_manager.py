@@ -17,12 +17,10 @@ API_URL_GET_DEBT = "https://license-api-h5um.onrender.com/get_debt"
 API_URL_DOWNLOAD = "https://license-api-h5um.onrender.com/download_logs"
 SECRET = os.getenv("ADMIN_PASSWORD")
 
-tariff_types_path = os.getenv("TARIFF_TYPES_PATH")
-if tariff_types_path and os.path.exists(tariff_types_path):
-    with open(tariff_types_path, encoding="utf-8") as f:
+TARIFF_TYPES_PATH = os.getenv("TARIFF_TYPES_PATH")
+if TARIFF_TYPES_PATH and os.path.exists(TARIFF_TYPES_PATH):
+    with open(TARIFF_TYPES_PATH, encoding="utf-8") as f:
         TARIFF_TYPES = json.load(f)
-else:
-    TARIFF_TYPES = {}
 
 
 db_logger = DBLogger()
