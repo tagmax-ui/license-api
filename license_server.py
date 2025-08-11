@@ -89,8 +89,6 @@ TARIFF_TYPES_PATH = os.getenv("TARIFF_TYPES_PATH")
 if TARIFF_TYPES_PATH and os.path.exists(TARIFF_TYPES_PATH):
     with open(TARIFF_TYPES_PATH, encoding="utf-8") as f:
         TARIFF_TYPES = json.load(f)
-else:
-    TARIFF_TYPES = {}
 
 
 @app.route("/add_agency", methods=["POST"])
@@ -326,8 +324,9 @@ def update_tariffs():
     agency_info["disabled_items"] = data.get("disabled_items", "")
 
     current[agency_name] = agency_info
-    # 🔒 écriture atomique recommandée
-    save_licenses()  # utilise l’objet global `licenses` ? -> remplace par un save de `current` (voir plus bas)
+    global licenses
+    licenses = current
+    save_licenses()
 
     return jsonify({"success": True, "agency_info": agency_info})
 
