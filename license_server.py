@@ -521,6 +521,19 @@ def delete_transactions_by_service():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/__diag_ttypes", methods=["GET"])
+def __diag_ttypes():
+    env_str = os.getenv("TARIFF_TYPES_JSON")
+    path = os.getenv("TARIFF_TYPES_PATH")
+    return jsonify({
+        "ttypes_len": len(TARIFF_TYPES),
+        "ttypes_keys_sample": list(TARIFF_TYPES.keys())[:5],
+        "has_env": env_str is not None,
+        "env_preview": (env_str[:120] + "...") if env_str and len(env_str) > 120 else env_str,
+        "path": path,
+        "path_exists": (os.path.exists(path) if path else None)
+    })
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
