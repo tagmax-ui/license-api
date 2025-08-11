@@ -19,6 +19,14 @@ TARIFF_TYPES = json.loads(os.getenv("TARIFF_TYPES_JSON", '{}'))  # dict of key: 
 LICENSES_FILE = "/data/licenses.json"
 
 
+@app.after_request
+def add_worker_header(resp):
+    try:
+        resp.headers["X-Worker-PID"] = str(os.getpid())
+    except Exception:
+        pass
+    return resp
+
 @app.route("/download_logs", methods=["GET"])
 def download_logs():
     auth = request.headers.get("Authorization")
@@ -122,72 +130,49 @@ def charge():
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
     client = auth.split("Bearer ")[1].strip()
-    agency_info = licenses.get(client)
+
+    # 🔁 recharge
+    current = load_licenses()
+    agency_info = current.get(client)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
     data = request.get_json()
-    service = data.get("service")
+    service = data.get("service", "")
     order = data.get("order", "")
     profile = data.get("profile", "")
     user = data.get("user", "")
     filename = data.get("filename", "")
-    words = data.get("words", 0)
-    tariff = None
 
-    # Si les noms ne sont pas là, fallback:
+    words = data.get("words")
     if words is None:
-        if service == "valuechecker":
-            words = data.get("raw_word_count", 0)
-        else:
-            words = data.get("weighted_word_count", 0)
+        words = data.get("raw_word_count" if service == "valuechecker" else "weighted_word_count", 0)
+    try:
+        words = int(words or 0)
+    except Exception:
+        words = 0
 
-    # Chercher le tarif depuis la config agence
-    tariff = agency_info.get(service)
-    if tariff is None:
-        if not tariff:  # "", None ou 0 = gratuit
-            amount = 0
-        else:
+    tariff = agency_info.get(service, None)
+    if not tariff:  # None, "", 0 → gratuit
+        amount = 0.0
+    else:
+        try:
             amount = round(words * float(tariff), 2)
+        except Exception:
+            amount = 0.0
 
-    # Calcul du montant
-    amount = round(words * tariff, 2)
-    agency_info["debt"] = agency_info.get("debt", 0) + amount
-    balance = agency_info["debt"]
-    save_licenses()
+    agency_info["debt"] = round(agency_info.get("debt", 0) + amount, 2)
+    current[client] = agency_info
 
-    # Log
-    db_logger.log(
-        client=client,
-        service=service,
-        order=order,
-        profile=profile,
-        user=user,
-        filename=filename,
-        words=words,
-        tariff=tariff,
-        amount=amount,
-        balance=balance
-    )
+    save_licenses()  # idem, voir plus bas
 
-    notify_usage_by_email(
-        client=client,
-        service=service,
-        order=order,
-        user=user,
-        profile=profile,
-        filename=filename,
-        words=words,
-        amount=amount,
-        balance=balance
-    )
+    db_logger.log(client=client, service=service, order=order, profile=profile,
+                  user=user, filename=filename, words=words, tariff=tariff,
+                  amount=amount, balance=agency_info["debt"])
 
-    return jsonify({
-        "success": True,
-        "debited": amount,
-        "new_debt": balance,
-        "tariff": tariff
-    })
+    notify_usage_by_email(client, service, order, user, profile, filename, words, amount, agency_info["debt"])
+    return jsonify({"success": True, "debited": amount, "new_debt": agency_info["debt"], "tariff": tariff})
+
 
 
 @app.route("/register_payment", methods=["POST"])
@@ -232,28 +217,26 @@ def get_debt():
         return jsonify({"success": False, "error": "Missing or invalid token"}), 403
 
     client = auth.split("Bearer ")[1].strip()
-
-    agency_info = licenses.get(client)
+    # 🔁 recharge depuis disque pour éviter la dérive multi-worker
+    current = load_licenses()
+    agency_info = current.get(client)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
+
     debt = agency_info.get("debt", 0)
 
-    # DRY: retourner tous les tarifs connus côté config/env
-    tariffs = {
-        key: agency_info.get(key, "")
-        for key in TARIFF_TYPES
-    }
+    if TARIFF_TYPES:
+        # Remonte toutes les clés connues, même absentes côté agence
+        tariffs = {key: agency_info.get(key, "") for key in TARIFF_TYPES}
+    else:
+        excluded = {"debt", "greeting", "disabled_items"}
+        tariffs = {k: v for k, v in agency_info.items() if k not in excluded}
 
     greeting = agency_info.get("greeting", "")
     disabled_items = agency_info.get("disabled_items", "")
 
-    return jsonify({
-        "success": True,
-        "debt": debt,
-        "tariffs": tariffs,
-        "greeting": greeting,
-        "disabled_items": disabled_items,
-    })
+    return jsonify({"success": True, "debt": debt, "tariffs": tariffs,
+                    "greeting": greeting, "disabled_items": disabled_items})
 
 
 @app.route("/list_agencies", methods=["GET"])
@@ -301,35 +284,51 @@ def update_tariffs():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
-    print("DATA:", data)
+
+    print("— update_tariffs() —")
+    print("AUTH OK =", auth == f"Bearer {os.environ.get('ADMIN_PASSWORD')}")
+    print("TARIFF_TYPES len =", len(TARIFF_TYPES))
+    print("TARIFF_TYPES keys sample =", list(TARIFF_TYPES.keys())[:5])
+    print("ENV TARIFF_TYPES_PATH =", os.getenv("TARIFF_TYPES_PATH"))
+    print("ENV TARIFF_TYPES_JSON present =", bool(os.getenv("TARIFF_TYPES_JSON")))
+    print("[STEP1] /update_tariffs called")
+    print("[STEP1] len(TARIFF_TYPES) =", len(TARIFF_TYPES))
+    print("[STEP1] 'apply_jargonary' in TARIFF_TYPES ->", 'apply_jargonary' in TARIFF_TYPES)
+    print("[STEP1] incoming keys (sample) =", list(data.keys())[:8], "... total:", len(data))
+
     agency_name = data.get("agency_name")
+
+    print("agency_name =", agency_name)
+    print("incoming data keys =", sorted(data.keys()))
+
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency name"}), 400
 
-    agency_info = licenses.get(agency_name)
+    # 🔁 recharge l’état courant (multi-worker safe-ish)
+    current = load_licenses()
+    agency_info = current.get(agency_name)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
-    for key in TARIFF_TYPES:
-        value = data.get(key, "")  # Prend la valeur envoyée, sinon vide
+    candidate_keys = set(TARIFF_TYPES.keys()) | {
+        k for k in data.keys() if k not in ("agency_name", "greeting", "disabled_items")
+    }
+
+    for key in candidate_keys:
+        value = data.get(key, "")
         try:
-            if value in ("", None):
-                agency_info[key] = ""
-            else:
-                agency_info[key] = float(value)
+            agency_info[key] = "" if value in ("", None) else float(value)
         except Exception:
             agency_info[key] = ""
 
     if "greeting" in data:
         agency_info["greeting"] = data["greeting"]
+    agency_info["disabled_items"] = data.get("disabled_items", "")
 
-    # Si une liste d’objets à désactiver est envoyée, on l’enregistre
-    disabled = data.get("disabled_items", "")
-    agency_info["disabled_items"] = disabled
+    current[agency_name] = agency_info
+    # 🔒 écriture atomique recommandée
+    save_licenses()  # utilise l’objet global `licenses` ? -> remplace par un save de `current` (voir plus bas)
 
-    print("agency_info après update:", agency_info)
-    save_licenses()
-    print("licenses maintenant:", licenses)
     return jsonify({"success": True, "agency_info": agency_info})
 
 

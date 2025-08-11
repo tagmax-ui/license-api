@@ -1,4 +1,18 @@
 id,client,timestamp,service,order,user,filename,words,tariff,amount,balance,profile
+250,symcom_20250531,1754925932,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+249,symcom_20250531,1754925846,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+248,symcom_20250531,1754925691,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+247,symcom_20250531,1754925679,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+246,symcom_20250531,1754925493,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+245,symcom_20250531,1754925319,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+244,symcom_20250531,1754925155,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+243,symcom_20250531,1754925060,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+242,symcom_20250531,1754925035,apply_jargonary,005-250731-006 (?),Marc-André Audette,005-250731-006_Mémoire_TAGmax_sans_balises.tmx,52508,0.0,0.0,359.52,Traducteur
+241,symcom_20250531,1754914447,generate_pretranslation,005-250808-002,Marc-André Audette,,1248,0.00242,3.02,359.52,sym-locale-admin
+240,symcom_20250531,1754682023,generate_pretranslation,005-250808-003,Marc-André Audette,,1648,0.00242,3.99,356.5,sym-locale-admin
+239,symcom_20250531,1754680686,prepare_terminology,005-250808-003,Marc-André Audette,,1648,0.00242,3.99,352.51,sym-locale-admin
+238,symcom_20250531,1754679979,generate_pretranslation,005-250731-006,Marc-André Audette,,37567,0.00242,90.91,348.52,Traducteur
+237,symcom_20250531,1754666679,prepare_terminology,005-250808-002,Marc-André Audette,,1248,0.00242,3.02,257.61,sym-locale-admin
 235,symcom_20250531,1754506047,prepare_terminology,005-250731-006,Marc-André Audette,,37567,0.00242,90.91,248.54,sym-locale-admin
 234,symcom_20250531,1754488613,generate_pretranslation,127-250805-015,Marc-André Audette,,3137,0.00242,7.59,157.63,SYM
 233,symcom_20250531,1754488412,generate_pretranslation,014-250804-001,Joanie Piché,,6336,0.00242,15.33,150.04,Joanie Piché
