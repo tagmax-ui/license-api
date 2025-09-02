@@ -1,4 +1,4 @@
-from tkinter import Tk, Frame, Label, Entry, Button, StringVar, ttk, LabelFrame, Toplevel
+from tkinter import Tk, Frame, Label, Entry, Button, StringVar, ttk, LabelFrame
 import os
 import requests
 from tkinter import messagebox
@@ -6,9 +6,6 @@ from dotenv import load_dotenv
 from db_logger import DBLogger
 import json
 import math
-from datetime import date, datetime
-import calendar
-
 
 load_dotenv()
 
@@ -19,9 +16,6 @@ API_URL_LIST_AGENCIES = "https://license-api-h5um.onrender.com/list_agencies"
 API_URL_GET_DEBT = "https://license-api-h5um.onrender.com/get_debt"
 API_URL_DOWNLOAD = "https://license-api-h5um.onrender.com/download_logs"
 API_URL_REGISTER_CREDIT = "https://license-api-h5um.onrender.com/register_credit"  # NEW
-API_URL_HISTORY = "https://license-api-h5um.onrender.com/history"
-API_URL_DELETE_TXN = "https://license-api-h5um.onrender.com/delete_transaction_by_id"
-
 
 SECRET = os.getenv("ADMIN_PASSWORD")
 
@@ -43,17 +37,19 @@ class LicenceManagerFrame(Frame):
         super().__init__(master)
         self.pack(padx=10, pady=10)
 
-        # Variables
         self.agency_var = StringVar()
         self.weighted_word_count_var = StringVar()
         self.tariff_type_var = StringVar(value="weighter")
         self.item_name_var = StringVar()
         self.payment_var = StringVar()
-        self.payment_date_var = StringVar(value=date.today().strftime("%Y-%m-%d"))  # NEW
         self.credit_var = StringVar()
-        self.credit_reason_var = StringVar()
         self.new_agency_var = StringVar()
-
+        self.delete_user_var = StringVar()
+        self.credit_reason_var = StringVar()
+        # self.weighter_tariff_var = StringVar()
+        # self.valuechecker_tariff_var = StringVar()
+        # self.terminology_tariff_var = StringVar()
+        # self.pretranslation_tariff_var = StringVar()
         self.tariff_vars = {}
         for key in TARIFF_TYPES:
             self.tariff_vars[key] = StringVar()
@@ -61,122 +57,129 @@ class LicenceManagerFrame(Frame):
         print("TARIFF_TYPES DANS __init__ :", TARIFF_TYPES)
 
         self.result_label = Label(self, text="Système de facturation post-payé (DETTE)", fg="red")
-        self.result_label.grid(row=0, column=0, columnspan=8, sticky="w", pady=(0, 10))
+        self.result_label.grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
         self.tariff_display_to_key = {v: k for k, v in TARIFF_TYPES.items()}
         self.greeting_var = StringVar()
         self.disabled_items_var = StringVar()
+        self.delete_service_var = StringVar()
 
-        # === Agence / message / objets ===
         self.frame_agency = LabelFrame(master=self)
         self.frame_agency.grid(row=1, column=0, sticky="ew", columnspan=12)
 
+        # 1. Agency choice
         Label(self.frame_agency, text="Agence:").grid(row=1, column=0, sticky="w")
-        self.agency_combobox = ttk.Combobox(
-            self.frame_agency, textvariable=self.agency_var, values=[], state="readonly"
-        )
+        self.agency_combobox = ttk.Combobox(self.frame_agency, textvariable=self.agency_var, values=[], state="readonly")
         self.agency_combobox.bind("<<ComboboxSelected>>", self.refresh_debt_display)
         self.agency_combobox.grid(row=1, column=1, sticky="ew")
         Button(self.frame_agency, text="Rafraîchir agences", command=self.fetch_agencies).grid(row=1, column=3)
 
         Label(self.frame_agency, text="Message d’accueil :").grid(row=2, column=0, sticky="w", pady=(10, 0))
-        Entry(self.frame_agency, textvariable=self.greeting_var, width=200).grid(
-            row=2, column=1, sticky="ew", pady=(10, 0)
-        )
-        Label(self.frame_agency, text="Objets à désactiver (virgules) :").grid(
-            row=3, column=0, sticky="w", pady=(10, 0)
-        )
-        Entry(self.frame_agency, textvariable=self.disabled_items_var, width=200).grid(
-            row=3, column=1, sticky="ew", pady=(10, 0)
-        )
+        Entry(self.frame_agency, textvariable=self.greeting_var, width=200).grid(row=2, column=1,
+                                                                                 sticky="ew", pady=(10, 0))
+        Label(self.frame_agency, text="Objets à désactiver (virgules) :").grid(row=3, column=0, sticky="w",
+                                                                               pady=(10, 0))
+        Entry(self.frame_agency, textvariable=self.disabled_items_var, width=200).grid(row=3, column=1,
+                                                                                       sticky="ew", pady=(10, 0))
 
-        # === Tarification ===
         self.frame_tariffs = LabelFrame(master=self, text="Tarification")
         self.frame_tariffs.grid(row=2, column=1, columnspan=2, sticky="ew")
 
         COLS = math.ceil(len(TARIFF_TYPES) / 10)  # Pour exactement 3 lignes
+
         for i, (key, label) in enumerate(TARIFF_TYPES.items()):
             row = 7 + i // COLS
             col = 2 * (i % COLS)
             Label(self.frame_tariffs, text=label).grid(row=row, column=col, sticky="w")
-            Entry(self.frame_tariffs, textvariable=self.tariff_vars[key], width=8).grid(
-                row=row, column=col + 1, sticky="w"
-            )
+            Entry(self.frame_tariffs, textvariable=self.tariff_vars[key], width=8).grid(row=row, column=col + 1,
+                                                                                         sticky="w")
 
+        # Le bouton Enregistrer, mets-le à la suite, par exemple :
         Button(self.frame_tariffs, text="Enregistrer", command=self.update_tariffs).grid(
             row=7 + math.ceil(len(TARIFF_TYPES) / COLS), column=0, columnspan=2 * COLS, pady=(8, 0)
         )
 
-        # === Solde actuel ===
-        Label(self, text="Rafraîchir le solde").grid(row=3, column=0, sticky="w")
-        Button(self, text="Rafraîchir", command=self.refresh_debt_display).grid(row=3, column=1, sticky="w")
+        # 2. Current Debt
+        Label(self, text="Dette actuelle:").grid(row=2, column=0, sticky="w")
         self.debt_label = Label(self, text="0.00 $")
-        self.debt_label.grid(row=3, column=2, sticky="w")
+        self.debt_label.grid(row=3, column=1, sticky="w")
+        Button(self, text="Rafraîchir dette", command=self.refresh_debt_display).grid(row=2, column=3)
 
-        # === Inscription manuelle ===
-        Label(self, text="Inscription manuelle – Service :").grid(row=4, column=0, sticky="w", pady=(10, 0))
+        # 3. Add work (increase debt)
+        Label(self, text="Ajouter du travail").grid(row=3, column=0, sticky="w", pady=(10, 0))
+        Label(self, text="Mots:").grid(row=4, column=0, sticky="w")
+        Entry(self, textvariable=self.weighted_word_count_var, width=10).grid(row=4, column=1, sticky="w")
+        Label(self, text="Service:").grid(row=4, column=2, sticky="w")
+        self.tariff_type_var = StringVar()
+
         self.tariff_combobox = ttk.Combobox(
-            self, textvariable=self.tariff_type_var,
-            values=list(TARIFF_TYPES.values()), state="readonly", width=18
-        )
-        self.tariff_combobox.grid(row=4, column=1, sticky="w", pady=(10, 0))
+            self,
+            textvariable=self.tariff_type_var,
+            values=list(TARIFF_TYPES.values()),  # affiche seulement les labels FR
+            state="readonly",
+            width=15)
 
-        Label(self, text="Demande :").grid(row=4, column=2, sticky="w", pady=(10, 0))
-        Entry(self, textvariable=self.item_name_var, width=22).grid(row=4, column=3, sticky="w", pady=(10, 0))
+        self.tariff_combobox.grid(row=4, column=3, sticky="w")
+        Label(self, text="Description:").grid(row=4, column=4, sticky="w")
+        Entry(self, textvariable=self.item_name_var, width=15).grid(row=4, column=5, sticky="w")
+        label = self.tariff_type_var.get()
+        if not label:
+            # Prendre la première valeur par défaut
+            label = list(self.tariff_display_to_key.keys())[0]
+        tariff_key = self.tariff_display_to_key[label]
+        Button(self, text="Ajouter à la dette", command=self.add_work).grid(row=4, column=6, padx=(10, 0))
 
-        Label(self, text="Mots :").grid(row=4, column=4, sticky="w", pady=(10, 0))
-        Entry(self, textvariable=self.weighted_word_count_var, width=10).grid(row=4, column=5, sticky="w", pady=(10, 0))
+        # 4. Register payment (reduce debt)
+        Label(self, text="Paiement reçu ($)").grid(row=5, column=0, sticky="w", pady=(10, 0))
+        Entry(self, textvariable=self.payment_var, width=10).grid(row=5, column=1, sticky="w")
+        Button(self, text="Enregistrer paiement", command=self.register_payment).grid(row=5, column=2, padx=(10, 0),
+                                                                                      pady=(10, 0))
+        Label(self, text="Crédit ($)").grid(row=5, column=3, sticky="w", pady=(10, 0))
+        Entry(self, textvariable=self.credit_var, width=10).grid(row=5, column=4, sticky="w")
 
-        Button(self, text="Ajouter", command=self.add_work).grid(row=4, column=6, sticky="w", padx=(8, 0), pady=(10, 0))
+        Label(self, text="Motif :").grid(row=5, column=5, sticky="w", pady=(10, 0))
+        Entry(self, textvariable=self.credit_reason_var, width=18).grid(row=5, column=6, sticky="w", pady=(10, 0))
 
-        # === Paiement ===
-        Label(self, text="Inscrire un paiement   Date :").grid(row=5, column=0, sticky="w", pady=(10, 0))
-        self.payment_date_entry = Entry(self, textvariable=self.payment_date_var, width=12)
-        self.payment_date_entry.grid(row=5, column=1, sticky="w", pady=(10, 0))
-        Button(self, text="📅", width=3, command=self._open_date_picker).grid(row=5, column=2, sticky="w", pady=(10, 0))
-
-        Label(self, text="Montant :").grid(row=5, column=3, sticky="w", pady=(10, 0))
-        Entry(self, textvariable=self.payment_var, width=10).grid(row=5, column=4, sticky="w", pady=(10, 0))
-        Button(self, text="Enregistrer paiement", command=self.register_payment).grid(
-            row=5, column=5, sticky="w", padx=(8,0), pady=(10,0)
-        )
-
-        # === Crédit ===
-        Label(self, text="Inscrire un crédit   Motif :").grid(row=6, column=0, sticky="w", pady=(10, 0))
-        Entry(self, textvariable=self.credit_reason_var, width=28).grid(row=6, column=1, columnspan=2, sticky="w", pady=(10,0))
-
-        Label(self, text="Montant :").grid(row=6, column=3, sticky="w", pady=(10, 0))
-        Entry(self, textvariable=self.credit_var, width=10).grid(row=6, column=4, sticky="w", pady=(10, 0))
         Button(self, text="Enregistrer crédit", command=self.register_credit).grid(
-            row=6, column=5, sticky="w", padx=(8,0), pady=(10,0)
+            row=5, column=7, padx=(10, 0), pady=(10, 0)
         )
 
-        # === Admin / Agences ===
-        Button(self, text="Rafraîchir la liste d’agences", command=self.fetch_agencies).grid(
-            row=7, column=0, sticky="w", pady=(16,0)
-        )
-        Label(self, text="Ajouter une agence").grid(row=7, column=1, sticky="w", pady=(16,0))
-        Entry(self, textvariable=self.new_agency_var, width=22).grid(row=7, column=2, sticky="w", pady=(16,0))
-        Button(self, text="Ajouter", command=self.create_agency).grid(row=7, column=3, sticky="w", pady=(16,0))
 
-        Button(self, text="Supprimer l’agence", command=self.delete_agency, fg="red").grid(
-            row=7, column=4, sticky="w", pady=(16,0)
-        )
+        # 5. Add agency
+        Label(self, text="Nouvelle agence").grid(row=6, column=0, sticky="w", pady=(20, 0))
+        Entry(self, textvariable=self.new_agency_var, width=20).grid(row=6, column=1, columnspan=2, sticky="ew",
+                                                                     pady=(20, 0))
+        Button(self, text="Ajouter agence", command=self.create_agency).grid(row=6, column=3, pady=(20, 0))
+        Button(self, text="Supprimer agence", command=self.delete_agency, fg="red").grid(row=6, column=4, pady=(20, 0))
 
-        Button(self, text="Réinitialiser les logs", command=self.reset_logs, fg="red").grid(
-            row=8, column=0, sticky="w", pady=(8,0)
-        )
-        Button(self, text="Télécharger la liste des agences (JSON)", command=self.download_agency_dicts).grid(
-            row=8, column=1, columnspan=2, sticky="w", pady=(8,0)
-        )
+        Button(self, text="Télécharger les transactions", command=self.download_transactions).grid(row=7, column=3, pady=(20, 0))
+        Button(self, text="Réinitialiser logs", command=self.reset_logs, fg="red").grid(row=7, column=4, pady=(20, 0))
 
-        Button(self, text="Afficher les transactions de l’agence…", command=self.open_transactions_window).grid(
-            row=8, column=3, columnspan=2, sticky="w", pady=(8,0)
-        )
+        Label(self, text="Début (timestamp):").grid(row=8, column=0, sticky="w")
+        self.start_timestamp_var = StringVar()
+        Entry(self, textvariable=self.start_timestamp_var, width=15).grid(row=8, column=1, sticky="w")
 
-        # Config grille
+        Label(self, text="Fin (timestamp):").grid(row=8, column=2, sticky="w")
+        self.end_timestamp_var = StringVar()
+        Entry(self, textvariable=self.end_timestamp_var, width=15).grid(row=8, column=3, sticky="w")
+
+        Button(self, text="Supprimer transactions", command=lambda: self.delete_transactions_by_date(
+            int(self.start_timestamp_var.get()), int(self.end_timestamp_var.get()))
+               ).grid(row=8, column=4, pady=(10, 0))
+
+        Button(self, text="Télécharger agences (JSON)", command=self.download_agency_dicts).grid(row=9, column=5)
+
+        Label(self, text="Supprimer transactions d’un utilisateur :").grid(row=10, column=0, sticky="w", pady=(20, 0))
+        Entry(self, textvariable=self.delete_user_var, width=18).grid(row=10, column=1, sticky="w", pady=(20, 0))
+        Button(self, text="Supprimer transactions utilisateur", command=self.delete_transactions_by_user, fg="red").grid(row=10, column=2, pady=(20, 0))
+
+        Label(self, text="Supprimer transactions d’un service :").grid(row=11, column=0, sticky="w", pady=(20, 0))
+        Entry(self, textvariable=self.delete_service_var, width=18).grid(row=11, column=1, sticky="w", pady=(20, 0))
+        Button(self, text="Supprimer transactions service (id en anglais)", command=self.delete_transactions_by_service, fg="red").grid(
+            row=11, column=2, pady=(20, 0))
+
+
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
-
         self.fetch_agencies()
 
     def register_credit(self):
@@ -369,19 +372,15 @@ class LicenceManagerFrame(Frame):
         try:
             agency = self.agency_var.get()
             amount = float(self.payment_var.get())
-            pay_date = (self.payment_date_var.get() or "").strip()  # NEW
-
             if not agency or amount <= 0:
                 self.result_label.config(text="⚠️ Entrez un montant de paiement valide.")
                 return
             headers = {"Authorization": f"Bearer {SECRET}"}
-            data = {"agency_name": agency, "amount": amount, "date": pay_date}  # NEW
+            data = {"agency_name": agency, "amount": amount}
             response = requests.post(API_URL_REGISTER_PAYMENT, json=data, headers=headers)
             result = response.json()
             if result.get("success"):
-                self.result_label.config(
-                    text=f"✅ Paiement enregistré. Nouvelle dette : {self._format_balance_for_display(result.get('new_debt', 0))}"
-                )
+                self.result_label.config(text=f"✅ Paiement enregistré. Nouvelle dette : {self._format_balance_for_display(result.get('new_debt', 0))}")
                 self.refresh_debt_display()
                 db_logger.log(agency, "payment", "", -amount)
             else:
@@ -389,7 +388,7 @@ class LicenceManagerFrame(Frame):
         except ValueError:
             self.result_label.config(text="⚠️ Montant de paiement invalide.")
         except Exception as e:
-            self.result_label.config(text=f"❌ Erreur réseau: {e}")
+            self.result_label.config(text=f"❌ Erreur réseau: {e}, {response}")
 
     def create_agency(self):
         agency_name = self.new_agency_var.get().strip()
@@ -569,151 +568,6 @@ class LicenceManagerFrame(Frame):
         except Exception as e:
             messagebox.showerror("Erreur réseau", f"Erreur de connexion: {e}")
             self.result_label.config(text=f"❌ Erreur réseau: {e}")
-
-    def open_transactions_window(self):
-        agency = (self.agency_var.get() or "").strip()
-        if not agency:
-            messagebox.showwarning("Agence", "Sélectionne une agence.")
-            return
-
-        # Récupération de l'historique
-        headers = {"Authorization": f"Bearer {agency}"}
-        try:
-            resp = requests.get(API_URL_HISTORY, headers=headers)
-            data = resp.json()
-            if not data.get("success"):
-                messagebox.showerror("Erreur", data.get("error", "Impossible de récupérer l'historique."))
-                return
-            history = data.get("history", [])
-        except Exception as e:
-            messagebox.showerror("Erreur réseau", str(e))
-            return
-
-        top = Toplevel(self)
-        top.title(f"Transactions – {agency}")
-        top.geometry("1000x520")
-
-        cols = ("id", "timestamp", "service", "order", "user", "filename", "words", "tariff", "amount", "balance")
-        tree = ttk.Treeview(top, columns=cols, show="headings", height=18)
-        for c in cols:
-            tree.heading(c, text=c)
-        widths = [90, 130, 110, 110, 100, 200, 70, 70, 90, 90]
-        for c, w in zip(cols, widths):
-            tree.column(c, width=w, anchor="w")
-
-        vsb = ttk.Scrollbar(top, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=vsb.set)
-        tree.grid(row=0, column=0, sticky="nsew", padx=(8, 0), pady=8)
-        vsb.grid(row=0, column=1, sticky="ns", pady=8)
-
-        btns = Frame(top);
-        btns.grid(row=1, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8))
-        Button(btns, text="🗑 Supprimer la transaction sélectionnée", fg="red",
-               command=lambda: self._delete_selected_txn(tree, agency)).pack(side="left", padx=(0, 10))
-        Button(btns, text="Rafraîchir", command=lambda: self._reload_tree(tree, agency)).pack(side="left")
-
-        top.grid_rowconfigure(0, weight=1)
-        top.grid_columnconfigure(0, weight=1)
-
-        # Remplissage initial
-        for row in history:
-            tree.insert("", "end", values=(
-                row.get("id", ""),
-                row.get("timestamp", ""),
-                row.get("service", ""),
-                row.get("order", ""),
-                row.get("user", ""),
-                row.get("filename", ""),
-                row.get("words", ""),
-                row.get("tariff", ""),
-                row.get("amount", ""),
-                row.get("balance", ""),
-            ))
-
-    def _reload_tree(self, tree, agency):
-        headers = {"Authorization": f"Bearer {agency}"}
-        try:
-            resp = requests.get(API_URL_HISTORY, headers=headers)
-            data = resp.json()
-            history = data.get("history", [])
-        except Exception as e:
-            messagebox.showerror("Erreur réseau", str(e))
-            return
-
-        for i in tree.get_children():
-            tree.delete(i)
-        for row in history:
-            tree.insert("", "end", values=(
-                row.get("id", ""),
-                row.get("timestamp", ""),
-                row.get("service", ""),
-                row.get("order", ""),
-                row.get("user", ""),
-                row.get("filename", ""),
-                row.get("words", ""),
-                row.get("tariff", ""),
-                row.get("amount", ""),
-                row.get("balance", ""),
-            ))
-
-    def _delete_selected_txn(self, tree, agency):
-        sel = tree.selection()
-        if not sel:
-            messagebox.showinfo("Suppression", "Sélectionne une transaction dans la liste.")
-            return
-        values = tree.item(sel[0], "values")
-        txn_id = values[0]
-        if not txn_id:
-            messagebox.showerror("Suppression", "Impossible : id manquant.")
-            return
-
-        if not messagebox.askyesno("Confirmation", f"Supprimer la transaction #{txn_id} ?"):
-            return
-
-        headers = {"Authorization": f"Bearer {SECRET}"}  # suppression = admin
-        try:
-            resp = requests.post(API_URL_DELETE_TXN, json={"id": txn_id}, headers=headers)
-            data = resp.json()
-            if data.get("success"):
-                tree.delete(sel[0])
-                self.refresh_debt_display()  # mets à jour le solde courant
-                self.result_label.config(text="✅ Transaction supprimée.")
-            else:
-                messagebox.showerror("Erreur", data.get("error", "Échec de la suppression."))
-        except Exception as e:
-            messagebox.showerror("Erreur réseau", str(e))
-
-    def _open_date_picker(self):
-        """Sélecteur de date minimal sans dépendances externes (YYYY-MM-DD)."""
-        # Base sur la date courante du champ
-        try:
-            current = datetime.strptime(self.payment_date_var.get(), "%Y-%m-%d").date()
-        except Exception:
-            current = date.today()
-        y, m = current.year, current.month
-
-        top = Toplevel(self)
-        top.title("Choisir une date")
-        top.resizable(False, False)
-
-        header = Frame(top); header.pack(padx=8, pady=6)
-        Label(header, text=f"{calendar.month_name[m]} {y}", font=("TkDefaultFont", 10, "bold")).pack()
-
-        body = Frame(top); body.pack(padx=8, pady=6)
-        for i, wd in enumerate(["Lu","Ma","Me","Je","Ve","Sa","Di"]):
-            Label(body, text=wd, width=3).grid(row=0, column=i)
-
-        cal = calendar.Calendar(firstweekday=0).monthdatescalendar(y, m)
-        for r, week in enumerate(cal, start=1):
-            for c, d in enumerate(week):
-                def _set(d=d):
-                    self.payment_date_var.set(d.strftime("%Y-%m-%d"))
-                    top.destroy()
-                Button(
-                    body, text=str(d.day), width=3,
-                    state=("normal" if d.month == m else "disabled"),
-                    command=_set
-                ).grid(row=r, column=c, padx=1, pady=1)
 
 if __name__ == "__main__":
     root = Tk()

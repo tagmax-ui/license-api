@@ -7,7 +7,6 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from lexicon_routes import lexicon_blueprint
 
-
 print(">>>> INIT DE LICENSE_SERVER !!!!!!!")
 app = Flask(__name__)
 app.register_blueprint(lexicon_blueprint, url_prefix='/lexicon')
@@ -26,6 +25,7 @@ def add_worker_header(resp):
     except Exception:
         pass
     return resp
+
 
 @app.route("/download_logs", methods=["GET"])
 def download_logs():
@@ -68,9 +68,10 @@ def load_licenses():
     return {}
 
 
-def save_licenses():
+def save_licenses(state=None):
+    data = state if state is not None else licenses
     with open(LICENSES_FILE, "w", encoding="utf-8") as f:
-        json.dump(licenses, f, indent=2, ensure_ascii=False)
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 licenses = load_licenses()
@@ -98,7 +99,6 @@ def add_agency():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     data = request.get_json()
-
     if not data:
         return jsonify({"success": False, "error": "Invalid or empty JSON"}), 400
 
@@ -106,18 +106,22 @@ def add_agency():
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency_name"}), 400
 
-    if agency_name in licenses:
+    current = load_licenses()
+    if agency_name in current:
         return jsonify({"success": False, "error": "Agency already exists"}), 409
 
     try:
-        agency_entry = {"debt": 0}
+        agency_entry = {"debt": 0.0}
         for key in TARIFF_TYPES:
-            agency_entry[key] = float(data.get(key, 0))
-        licenses[agency_name] = agency_entry
+            agency_entry[key] = float(data.get(key, 0) or 0)
+        current[agency_name] = agency_entry
     except Exception as e:
         return jsonify({"success": False, "error": f"Invalid tariff value: {e}"}), 400
 
-    save_licenses()
+    global licenses
+    licenses = current
+    save_licenses(current)
+
     return jsonify({"success": True, "message": f"Agency '{agency_name}' added."})
 
 
@@ -161,8 +165,10 @@ def charge():
 
     agency_info["debt"] = round(agency_info.get("debt", 0) + amount, 2)
     current[client] = agency_info
+    global licenses
+    licenses = current
 
-    save_licenses()  # idem, voir plus bas
+    save_licenses(current)
 
     db_logger.log(client=client, service=service, order=order, profile=profile,
                   user=user, filename=filename, words=words, tariff=tariff,
@@ -170,7 +176,6 @@ def charge():
 
     notify_usage_by_email(client, service, order, user, profile, filename, words, amount, agency_info["debt"])
     return jsonify({"success": True, "debited": amount, "new_debt": agency_info["debt"], "tariff": tariff})
-
 
 
 @app.route("/register_payment", methods=["POST"])
@@ -181,18 +186,27 @@ def register_payment():
 
     data = request.get_json()
     agency_name = data.get("agency_name")
-    payment = data.get("amount")
+    payment = float(data.get("amount", 0) or 0)
+    pay_date = (data.get("date") or "").strip()  # NEW (optionnel, format YYYY-MM-DD recommandé)
 
-    agency_info = licenses.get(agency_name)
+    current = load_licenses()
+    agency_info = current.get(agency_name)
     if not agency_info:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
-    agency_info["debt"] = max(agency_info.get("debt", 0) - payment, 0)
-    save_licenses()
+    # Autoriser solde négatif (crédit)
+    agency_info["debt"] = round(float(agency_info.get("debt", 0)) - payment, 2)
+    current[agency_name] = agency_info
+
+    global licenses
+    licenses = current
+    save_licenses(current)
+
+    # Journalisation: on passe la date si ton DBLogger l'accepte (sinon, mets-la dans filename ou notes)
     db_logger.log(
         client=agency_name,
         service="payment",
-        order="",
+        order=pay_date,     # <- si tu préfères, conserve la date ici
         profile="",
         user="",
         filename="",
@@ -202,10 +216,130 @@ def register_payment():
         balance=agency_info["debt"]
     )
 
-    return jsonify({
-        "success": True,
-        "new_debt": agency_info["debt"]
-    })
+    return jsonify({"success": True, "new_debt": agency_info["debt"]})
+
+
+
+@app.route("/register_credit", methods=["POST"])
+def register_credit():
+    """
+    Enregistre un CRÉDIT (ajustement) qui réduit la dette d'une agence.
+    Auth: admin (Bearer ADMIN_PASSWORD).
+    Body JSON:
+      - agency_name: str (obligatoire)
+      - amount: float > 0 (obligatoire)
+      - description: str (optionnel)
+    Réponse:
+      { "success": true, "new_debt": float }
+    """
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json() or {}
+    agency_name = data.get("agency_name")
+    amount_raw = data.get("amount", 0)
+    description = (data.get("description") or "").strip()
+
+    # Validation de base
+    if not agency_name:
+        return jsonify({"success": False, "error": "Missing agency_name"}), 400
+    try:
+        amount = float(amount_raw or 0)
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid amount"}), 400
+    if amount <= 0:
+        return jsonify({"success": False, "error": "Amount must be > 0"}), 400
+
+    # Toujours repartir du disque (multi-worker safe-ish)
+    current = load_licenses()
+    agency_info = current.get(agency_name)
+    if not agency_info:
+        return jsonify({"success": False, "error": "Agency not found"}), 404
+
+    new_debt = round(float(agency_info.get("debt", 0)) - amount, 2)
+    agency_info["debt"] = new_debt
+    current[agency_name] = agency_info
+
+    # Sync + persist
+    global licenses
+    licenses = current
+    save_licenses(current)
+
+    # Journalisation
+    try:
+        db_logger.log(
+            client=agency_name,
+            service="credit",        # <- distingue du "payment"
+            order="",                # champs cohérents avec register_payment
+            profile="",
+            user="",
+            filename=description,    # on peut ranger le motif ici si ton DBLogger n'a pas de champ dédié
+            words=0,
+            tariff=0,
+            amount=-amount,          # montant NEGATIF (réduction)
+            balance=new_debt
+        )
+    except Exception as e:
+        # ne pas bloquer la réponse API si le logger échoue
+        print("[register_credit] DBLogger error:", e)
+
+    # (Optionnel) notifier par courriel, même gabarit que charge()
+    try:
+        subj = f"[TAGmax] Crédit appliqué à {agency_name}"
+        html = f"""
+            <p>Un crédit vient d'être enregistré pour <strong>{agency_name}</strong>.</p>
+            <ul>
+                <li>Montant du crédit : <strong>{amount:.2f} $</strong></li>
+                <li>Motif : <strong>{description or "(non précisé)"} </strong></li>
+                <li>Dette actuelle : <strong>{new_debt:.2f} $</strong></li>
+            </ul>
+        """
+        send_email("jessylapointe@gmail.com", subj, html)
+    except Exception as e:
+        print("[register_credit] email notify error:", e)
+
+    return jsonify({"success": True, "new_debt": new_debt})
+
+@app.route("/delete_transaction_by_id", methods=["POST"])
+def delete_transaction_by_id():
+    auth = request.headers.get("Authorization")
+    if auth != f"Bearer {admin_password}":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json() or {}
+    txn_id = data.get("id")
+    if not txn_id:
+        return jsonify({"success": False, "error": "Missing id"}), 400
+
+    try:
+        # À ajouter côté DBLogger si absent:
+        #  - db_logger.get_transaction(txn_id) -> dict (avec au moins 'client' et 'amount')
+        #  - db_logger.delete_transaction(txn_id) -> bool
+        txn = db_logger.get_transaction(txn_id)
+        if not txn:
+            return jsonify({"success": False, "error": "Transaction not found"}), 404
+
+        client = txn.get("client")
+        amount = float(txn.get("amount", 0))
+
+        # Ajuster la dette en sens inverse de la transaction supprimée
+        current = load_licenses()
+        agency_info = current.get(client, {})
+        if "debt" in agency_info:
+            agency_info["debt"] = round(float(agency_info.get("debt", 0)) - amount, 2)
+            current[client] = agency_info
+            global licenses
+            licenses = current
+            save_licenses(current)
+
+        ok = db_logger.delete_transaction(txn_id)
+        if not ok:
+            return jsonify({"success": False, "error": "Delete failed"}), 500
+
+        return jsonify({"success": True, "new_debt": agency_info.get("debt", 0)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/get_debt", methods=["POST"])
@@ -239,7 +373,8 @@ def get_debt():
 
 @app.route("/list_agencies", methods=["GET"])
 def list_agencies():
-    return jsonify(list(licenses.keys()))
+    current = load_licenses()
+    return jsonify(list(current.keys()))
 
 
 @app.route("/download_licenses", methods=["GET"])
@@ -266,11 +401,15 @@ def delete_agency():
     if not agency_name:
         return jsonify({"success": False, "error": "Missing agency_name"}), 400
 
-    if agency_name not in licenses:
+    current = load_licenses()
+    if agency_name not in current:
         return jsonify({"success": False, "error": "Agency not found"}), 404
 
-    del licenses[agency_name]
-    save_licenses()
+    del current[agency_name]
+
+    global licenses
+    licenses = current
+    save_licenses(current)
 
     return jsonify({"success": True, "message": f"Agency '{agency_name}' deleted."})
 
@@ -326,7 +465,7 @@ def update_tariffs():
     current[agency_name] = agency_info
     global licenses
     licenses = current
-    save_licenses()
+    save_licenses(current)
 
     return jsonify({"success": True, "agency_info": agency_info})
 
@@ -443,6 +582,7 @@ def send_email_route():
         return jsonify({"success": True, "status_code": status})
     return jsonify({"success": False, "error": "Échec de l’envoi"}), 500
 
+
 def notify_usage_by_email(client, service, order, user, profile, filename, words, amount, balance):
     subject = f"[TAGmax] {client} a utilisé le service {service}"
     html_content = f"""
@@ -460,7 +600,7 @@ def notify_usage_by_email(client, service, order, user, profile, filename, words
     try:
         message = Mail(
             from_email='jessylapointe@gmail.com',  # ton adresse vérifiée SendGrid
-            to_emails='jessylapointe@gmail.com',   # destinataire (toi-même)
+            to_emails='jessylapointe@gmail.com',  # destinataire (toi-même)
             subject=subject,
             html_content=html_content
         )
@@ -468,6 +608,7 @@ def notify_usage_by_email(client, service, order, user, profile, filename, words
         sg.send(message)
     except Exception as e:
         print("[Erreur lors de l’envoi du courriel de notification]", e)
+
 
 def send_email(to_email, subject, html_content):
     try:
@@ -499,9 +640,11 @@ def delete_transactions_by_user():
     try:
         # Tu dois ajouter cette méthode à DBLogger si elle n'existe pas.
         deleted_count = db_logger.delete_transactions_by_user(username)
-        return jsonify({"success": True, "message": f"{deleted_count} transactions supprimées pour l'utilisateur '{username}'."})
+        return jsonify(
+            {"success": True, "message": f"{deleted_count} transactions supprimées pour l'utilisateur '{username}'."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/delete_transactions_by_service", methods=["POST"])
 def delete_transactions_by_service():
@@ -516,9 +659,11 @@ def delete_transactions_by_service():
 
     try:
         deleted_count = db_logger.delete_transactions_by_service(service)
-        return jsonify({"success": True, "message": f"{deleted_count} transactions supprimées pour le service '{service}'."})
+        return jsonify(
+            {"success": True, "message": f"{deleted_count} transactions supprimées pour le service '{service}'."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/__diag_ttypes", methods=["GET"])
 def __diag_ttypes():
