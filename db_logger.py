@@ -89,3 +89,18 @@ class DBLogger:
             deleted_count = cur.rowcount
             conn.commit()
         return deleted_count
+
+    def get_transaction(self, txn_id: int) -> dict | None:
+        with sqlite3.connect(self.db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT * FROM transactions WHERE id = ?", (txn_id,))
+            cols = [desc[0] for desc in c.description]
+            row = c.fetchone()
+            return dict(zip(cols, row)) if row else None
+
+    def delete_transaction(self, txn_id: int) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            c = conn.cursor()
+            c.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
+            conn.commit()
+            return c.rowcount > 0
